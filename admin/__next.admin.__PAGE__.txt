@@ -1,5 +1,5 @@
 1:"$Sreact.fragment"
 2:I[56342,["https://sylathas.github.io/circumstances/_next/static/chunks/8f96c2a6a4b390fe.js","https://sylathas.github.io/circumstances/_next/static/chunks/8c78c69a834eca9a.js"],"OutletBoundary"]
 3:"$Sreact.suspense"
-0:{"buildId":"EYvBfk4nCTk7bucRbFm7r","rsc":["$","$1","c",{"children":[["$","div",null,{"children":["$","h1",null,{"children":"Admin"}]}],null,["$","$L2",null,{"children":["$","$3",null,{"name":"Next.MetadataOutlet","children":"$@4"}]}]]}],"loading":null,"isPartial":false}
+0:{"buildId":"1FPAys1ivqcsc-agSwNW5","rsc":["$","$1","c",{"children":[["$","div",null,{"children":["$","h1",null,{"children":"Admin"}]}],null,["$","$L2",null,{"children":["$","$3",null,{"name":"Next.MetadataOutlet","children":"$@4"}]}]]}],"loading":null,"isPartial":false}
 4:null
