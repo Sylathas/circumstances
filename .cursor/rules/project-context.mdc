@@ -1,0 +1,25 @@
+---
+description: Project context and conventions for Circumstances site
+alwaysApply: true
+---
+
+# Circumstances project
+
+- Next.js 14+ with TypeScript, App Router
+- Firebase Firestore database + Firebase Auth (for admin login)
+- Font: "FeatureMono" loaded via next/font/local with weights 100–700 (see fonts.ts)
+- Firebase config is at: app/components/firebase/firebaseConfig.tsx
+- Three.js is already a project dependency — use @react-three/fiber + @react-three/drei for all 3D work. Do NOT fall back to CSS 3D transforms.
+- All media (cover images, gallery images, videos) is hosted on Firebase Storage. Firestore stores the download URL strings returned after upload.
+- Firestore structure: collection "projects", each document contains:
+  { Client: string, Cover Image: string (Firebase Storage URLs), Credit Names: Array<{ name: string, role: string }>, Images: string[] (Firebase Storage URLs), Project Description: string, Project Title: string, Type: "Creative Direction" | "Film" | "Still" | "Live Show", Videos: string[] (Firebase Storage URLs) }
+- Design language: monospaced, minimal, black-and-white with selective red/green accent text. Early-2000s editorial aesthetic. No rounded corners, no drop shadows, no generic UI libraries.
+
+ARCHITECTURE — DUAL-MODE (PUBLIC + ADMIN):
+This is a portfolio website that doubles as its own CMS. The public site and admin interface share the SAME pages and components. When an authenticated admin is logged in, editing controls (inline text editing, delete buttons, drag-to-reorder, media upload, "SAVE" button, etc.) appear on top of the existing UI. When logged out, visitors see a clean read-only portfolio.
+
+Implementation pattern:
+- Create an AuthContext provider (app/components/auth/AuthContext.tsx) using Firebase Auth. Expose a `useAuth()` hook that returns { user, isAdmin, loading }.
+- Every component that has an edit mode should read `isAdmin` from this context and conditionally render editing affordances. Do NOT build separate admin and public versions of the same component.
+- Example: the Header component always renders the logo + category filters. When isAdmin is true, it additionally renders a "SAVE" button (on project pages) and a "LOG OUT" link. When isAdmin is false, those elements are hidden.
+- Admin login should be accessible at /login (simple email/password form) — keep it minimal, no need for a polished design.

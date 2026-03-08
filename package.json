@@ -1,0 +1,38 @@
+{
+  "name": "circumstances",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "deploy": "NEXT_PUBLIC_BASE_PATH=/circumstances next build && touch out/.nojekyll && npx gh-pages -d out -r https://github.com/Sylathas/circumstances.git",
+    "update-project-ids": "node scripts/update-project-ids.mjs"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "@react-three/postprocessing": "^3.0.4",
+    "@types/three": "^0.183.1",
+    "animejs": "^4.3.6",
+    "firebase": "^12.10.0",
+    "framer-motion": "^11.15.0",
+    "next": "16.1.6",
+    "postprocessing": "^6.38.3",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "three": "^0.183.1"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.2.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
