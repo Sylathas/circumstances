@@ -26,7 +26,7 @@ export default function Key({ phase, setPhase, setCapturedTransform, whiteMateri
     const KEYHOLE_APPROACH_POSITION = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, -5))
     // Keep mobile approach in front of the door plane (z ~ -5) so the key
     // does not get occluded/disappear while traveling from the right.
-    const MOBILE_APPROACH_POSITION = useRef<THREE.Vector3>(new THREE.Vector3(0.15, 0, -4.7))
+    const MOBILE_APPROACH_POSITION = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, -4.7))
     const MOBILE_SPAWN_POSITION = useRef<THREE.Vector3>(new THREE.Vector3(8, -2, 0))
     const raycaster = useRef<THREE.Raycaster>(new THREE.Raycaster())
     const plane = useRef<THREE.Plane>(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0))

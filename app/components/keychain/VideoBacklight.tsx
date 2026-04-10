@@ -21,6 +21,7 @@ type VideoBacklightProps = {
 
 export function VideoBacklight({ videoRef, emissiveIntensity = 0.35 }: VideoBacklightProps) {
   const { tier, fxMatrix } = useDeviceTier();
+  const videoBacklightEnabled = fxMatrix[tier].videoBacklight;
   const [videoReady, setVideoReady] = useState(false);
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
@@ -37,14 +38,20 @@ export function VideoBacklight({ videoRef, emissiveIntensity = 0.35 }: VideoBack
   }, [videoRef]);
 
   const texture = useMemo(() => {
-    if (!videoReady || !videoRef.current) return null;
+    if (!videoBacklightEnabled || !videoReady || !videoRef.current) return null;
     const t = new THREE.VideoTexture(videoRef.current);
     t.colorSpace = THREE.SRGBColorSpace;
     t.minFilter = THREE.LinearFilter;
     t.magFilter = THREE.LinearFilter;
     t.generateMipmaps = false;
     return t;
-  }, [videoReady, videoRef]);
+  }, [videoBacklightEnabled, videoReady, videoRef]);
+
+  useEffect(() => {
+    return () => {
+      texture?.dispose();
+    };
+  }, [texture]);
 
   // Stable Color instance — avoids allocating a new object every render.
   const emissiveColor = useMemo(() => new THREE.Color(1, 1, 1), []);
@@ -65,7 +72,7 @@ export function VideoBacklight({ videoRef, emissiveIntensity = 0.35 }: VideoBack
     mesh.scale.set(width, height, 1);
   });
 
-  if (!fxMatrix[tier].videoBacklight || !texture) return null;
+  if (!videoBacklightEnabled || !texture) return null;
 
   return (
     <mesh ref={meshRef} position={[0, 0, zPos]}>
