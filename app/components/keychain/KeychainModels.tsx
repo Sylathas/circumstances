@@ -8,7 +8,7 @@
 
 import { useAnimations, useGLTF } from "@react-three/drei";
 import { type ThreeEvent } from "@react-three/fiber";
-import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import * as THREE from "three";
 import { KEYCHAIN_MODELS } from "./keychainAssets";
 import { buildManagedClips } from "./keychainClipUtils";
@@ -29,11 +29,14 @@ import {
   type StateNodeName,
 } from "./keychainInteractionConfig";
 
-// Preload both variants — the tier-appropriate one will be used at runtime.
+// Only preload both variants when they differ. Currently wholeLod1 is a placeholder
+// pointing to the same file, so preloading it twice would fetch twice for nothing.
 useGLTF.preload(KEYCHAIN_MODELS.whole);
-useGLTF.preload(KEYCHAIN_MODELS.wholeLod1);
+if (KEYCHAIN_MODELS.wholeLod1 !== KEYCHAIN_MODELS.whole) {
+  useGLTF.preload(KEYCHAIN_MODELS.wholeLod1);
+}
 
-function clearTimeoutRef(timeoutRef: MutableRefObject<number | null>) {
+function clearTimeoutRef(timeoutRef: RefObject<number | null>) {
   if (timeoutRef.current !== null) {
     window.clearTimeout(timeoutRef.current);
     timeoutRef.current = null;

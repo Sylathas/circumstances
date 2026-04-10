@@ -6,9 +6,12 @@
  */
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { Header } from "@/app/components/Header";
 import AddProjectModal from "@/app/components/AddProjectModal";
 import { useProjectsCarousel } from "./useProjectsCarousel";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
+import { emitRouteReady } from "@/app/utils/routeReady";
 
 const CarouselScene = dynamic(
   () => import("@/app/components/carousel/CarouselScene"),
@@ -17,6 +20,15 @@ const CarouselScene = dynamic(
 
 export default function ProjectsCarouselPage() {
   const c = useProjectsCarousel();
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (c.authLoading || c.loading) return;
+    const a = requestAnimationFrame(() => {
+      requestAnimationFrame(() => emitRouteReady("/projects"));
+    });
+    return () => cancelAnimationFrame(a);
+  }, [c.authLoading, c.loading]);
 
   if (c.authLoading || c.loading) {
     return (
@@ -34,7 +46,7 @@ export default function ProjectsCarouselPage() {
         backHref="/home"
         showCategoryFilters
       />
-      <div className="w-full h-[calc(100vh-var(--header-height))] relative cursor-default">
+      <div className={`w-full relative cursor-default ${isMobile ? "h-[calc(90vh_-_var(--header-height))]" : "h-[calc(100vh_-_var(--header-height))]"}`}>
         <CarouselScene
           projects={c.filteredProjects}
           isAdmin={!!c.isAdmin}
@@ -44,7 +56,7 @@ export default function ProjectsCarouselPage() {
           onProjectClick={c.onProjectClick}
         />
 
-        <div className="absolute top-25 left-1/2 -translate-x-1/2 text-center text-[#171717] text-sm font-normal">
+        <div className={`absolute left-1/2 -translate-x-1/2 text-center text-[#171717] text-sm font-normal ${isMobile ? "top-6" : "top-25"}`}>
           {c.activeProject && (
             <>
               {c.isAdmin && (
@@ -76,7 +88,7 @@ export default function ProjectsCarouselPage() {
           )}
         </div>
 
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 text-center text-[#171717] text-xs font-normal">
+        <div className={`absolute left-1/2 -translate-x-1/2 text-center text-[#171717] text-xs font-normal ${isMobile ? "bottom-8" : "bottom-12"}`}>
           {c.activeProject ? (
             <>
               {c.editingField === "client" ? (

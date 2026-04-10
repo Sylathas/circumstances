@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   collection,
   getDocs,
@@ -32,9 +32,11 @@ import { db } from "@/app/components/firebase/firebaseConfig";
 import type { DiaryEntry } from "@/app/types/project";
 import AddDiaryEntryModal from "@/app/components/AddDiaryEntryModal";
 import SortableDiaryEntryTile from "@/app/components/diary/SortableDiaryEntryTile";
+import { navigateWithBlurTransition } from "@/app/utils/blurRouteTransition";
 
 export default function DiaryPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { isAdmin } = useAuth();
   const isMobile = useIsMobile();
   const [columnNum, setColumnNum] = useState("grid-cols-6");
@@ -208,7 +210,14 @@ export default function DiaryPage() {
                       entry={entry}
                       isDraggingGlobal={isDraggingGlobal}
                       disabled={!sortingEnabled}
-                      onOpen={(id) => router.push(`/diary/${id}`)}
+                      onOpen={(id) =>
+                        navigateWithBlurTransition({
+                          router,
+                          fromPath: pathname ?? "/diary",
+                          toPath: `/diary/${id}`,
+                          isMobile,
+                        })
+                      }
                     />
                   ))}
               </section>

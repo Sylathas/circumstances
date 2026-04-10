@@ -19,7 +19,6 @@ import { useIsMobile } from "@/app/hooks/useIsMobile";
 import {
     EffectComposer,
     Bloom,
-    BrightnessContrast,
     Vignette,
     Noise,
     HueSaturation,
@@ -108,8 +107,17 @@ function UnifiedCameraRig({ revealKeychain }: { revealKeychain: boolean }) {
     useFrame(() => {
         const targetPos = revealKeychain ? KEYCHAIN_CAMERA_POS : INTRO_CAMERA_POS
         const targetLook = revealKeychain ? KEYCHAIN_LOOK_AT : INTRO_LOOK_AT
-        camera.position.lerp(targetPos, revealKeychain ? 0.06 : 0.2)
-        lookAtTarget.lerp(targetLook, revealKeychain ? 0.08 : 0.2)
+        const posAlpha = revealKeychain ? 0.06 : 0.2
+        const lookAlpha = revealKeychain ? 0.08 : 0.2
+
+        // Only lerp while there is still meaningful distance to cover.
+        // Avoids writing to camera matrices every frame once it has settled.
+        const posDeltaSq = camera.position.distanceToSquared(targetPos)
+        const lookDeltaSq = lookAtTarget.distanceToSquared(targetLook)
+        if (posDeltaSq < 1e-8 && lookDeltaSq < 1e-8) return
+
+        if (posDeltaSq >= 1e-8) camera.position.lerp(targetPos, posAlpha)
+        if (lookDeltaSq >= 1e-8) lookAtTarget.lerp(targetLook, lookAlpha)
         camera.lookAt(lookAtTarget)
     })
 

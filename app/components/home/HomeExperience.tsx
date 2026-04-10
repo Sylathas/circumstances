@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import SceneWrapper from "@/app/components/three/SceneWrapper";
-import { useSong } from "@/app/components/songs/SongProvider";
+import { useSongStable } from "@/app/components/songs/SongProvider";
 import SongBar from "@/app/components/songs/SongBar";
 import { useLoading } from "@/app/context/LoadingContext";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
@@ -15,7 +15,7 @@ export type HomeExperienceProps = {
 };
 
 export function HomeExperience({ mode }: HomeExperienceProps) {
-  const { startPlayback } = useSong();
+  const { startPlayback } = useSongStable();
   const { markSceneReady, markVideoReady, markIntroReady } = useLoading();
   const isMobile = useIsMobile();
   const videoSrc = isMobile ? "/textures/BG-fx_mobile.mp4" : "/textures/BG-fx.mp4";
@@ -27,6 +27,11 @@ export function HomeExperience({ mode }: HomeExperienceProps) {
   const showHeader = mode === "menu-only" || menuVisible;
   const sceneLayerClass =
     mode === "intro" && !menuVisible ? "z-[51]" : "z-10";
+
+  const emitHomeSceneReady = () => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("home:scene-ready"));
+  };
 
   return (
     <>
@@ -76,6 +81,7 @@ export function HomeExperience({ mode }: HomeExperienceProps) {
             onIntroReady={() => {
               setSceneReady(true);
               markIntroReady();
+              emitHomeSceneReady();
             }}
             videoRef={videoRef}
           />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   deleteDoc,
   doc,
@@ -16,9 +16,13 @@ import {
   getWarmProjectsSnapshot,
   warmupProjectsCarousel,
 } from "@/app/components/carousel/projectsWarmup";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
+import { navigateWithBlurTransition } from "@/app/utils/blurRouteTransition";
 
 export function useProjectsCarousel() {
   const router = useRouter();
+  const pathname = usePathname();
+  const isMobile = useIsMobile();
   const { isAdmin, loading: authLoading } = useAuth();
   const warmSnapshot = getWarmProjectsSnapshot();
 
@@ -140,10 +144,15 @@ export function useProjectsCarousel() {
   const onProjectClick = useCallback(
     (index: number) => {
       if (index >= 0 && index < filteredProjects.length) {
-        router.push(`/projects/${filteredProjects[index].id}`);
+        navigateWithBlurTransition({
+          router,
+          fromPath: pathname ?? "/projects",
+          toPath: `/projects/${filteredProjects[index].id}`,
+          isMobile,
+        });
       }
     },
-    [router, filteredProjects]
+    [router, pathname, filteredProjects, isMobile]
   );
 
   return {

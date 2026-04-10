@@ -143,6 +143,9 @@ export function useKeychainBlend({
   }, []);
 
   useFrame(() => {
+    // Skip the whole tick when nothing is blending — avoids any per-frame cost at rest.
+    if (!hoverBlendRef.current && !idleBlendRef.current) return;
+
     // Hover blend tick
     const hoverBlend = hoverBlendRef.current;
     if (hoverBlend) {

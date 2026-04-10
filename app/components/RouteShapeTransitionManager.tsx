@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { warmupProjectsCarousel } from "@/app/components/carousel/projectsWarmup";
+import { navigateWithBlurTransition } from "@/app/utils/blurRouteTransition";
 
 type RouteTransitionDetail = {
   action?: "Diary" | "Projects" | "Studio" | "Tag";
@@ -49,6 +50,7 @@ export default function RouteShapeTransitionManager() {
   const pathname = usePathname();
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [overlayExpanded, setOverlayExpanded] = useState(false);
+  const [overlayStyle, setOverlayStyle] = useState<"keyhole" | "fade">("keyhole");
   const [fallbackDurationMs, setFallbackDurationMs] = useState(700);
   const isTransitioningRef = useRef(false);
   const fallbackModeRef = useRef(false);
@@ -58,6 +60,8 @@ export default function RouteShapeTransitionManager() {
     router.prefetch("/projects");
     router.prefetch("/studio");
     router.prefetch("/diary");
+
+    if (shouldUseSimpleFadeNavigation()) return;
 
     const runWarmup = () => {
       void Promise.allSettled([
@@ -93,12 +97,22 @@ export default function RouteShapeTransitionManager() {
       ev.preventDefault();
       isTransitioningRef.current = true;
 
-      // Mobile: keep transitions lightweight and rely on route/page fades.
+      // Mobile: lightweight white-fade overlay that holds until the destination
+      // page signals ready. isTransitioningRef stays true for the guard above;
+      // blurRouteTransition has its own module-level lock against stacking overlays.
       if (shouldUseSimpleFadeNavigation()) {
-        sessionStorage.setItem("route-shape-nav", "1");
-        router.push(route);
-        isTransitioningRef.current = false;
-        fallbackModeRef.current = false;
+        navigateWithBlurTransition({
+          router,
+          fromPath: pathname ?? "/",
+          toPath: route,
+          isMobile: true,
+        });
+        // Reset after a tick so the guard above can still catch rapid double-taps
+        // before the async transition has had a chance to install its own lock.
+        window.setTimeout(() => {
+          isTransitioningRef.current = false;
+          fallbackModeRef.current = false;
+        }, 80);
         return;
       }
 
@@ -126,7 +140,7 @@ export default function RouteShapeTransitionManager() {
         return;
       }
 
-      // Fallback path (non-supporting browsers).
+      // Fallback path (non-supporting browsers / WebKit-safe).
       const cssDurationMs = parseCssDurationMs(
         getComputedStyle(document.documentElement).getPropertyValue(
           "--route-shape-duration"
@@ -139,6 +153,7 @@ export default function RouteShapeTransitionManager() {
         : durationMs;
       fallbackDurationRef.current = safeDurationMs;
       setFallbackDurationMs(safeDurationMs);
+      setOverlayStyle("keyhole");
 
       fallbackModeRef.current = true;
       setOverlayVisible(true);
@@ -148,7 +163,7 @@ export default function RouteShapeTransitionManager() {
       window.setTimeout(() => {
         sessionStorage.setItem("route-shape-nav", "1");
         router.push(route);
-      }, durationMs);
+      }, safeDurationMs);
     };
 
     window.addEventListener(
@@ -168,11 +183,12 @@ export default function RouteShapeTransitionManager() {
     const t = window.setTimeout(() => {
       setOverlayVisible(false);
       setOverlayExpanded(false);
+      setOverlayStyle("keyhole");
       isTransitioningRef.current = false;
       fallbackModeRef.current = false;
-    }, Math.max(120, Math.round(fallbackDurationRef.current * 0.35)));
+    }, Math.max(120, Math.round(fallbackDurationRef.current * (overlayStyle === "fade" ? 0.6 : 0.35))));
     return () => window.clearTimeout(t);
-  }, [pathname]);
+  }, [pathname, overlayStyle]);
 
   if (!overlayVisible) return null;
 
@@ -181,11 +197,15 @@ export default function RouteShapeTransitionManager() {
       className={`pointer-events-none fixed inset-0 z-[200] flex items-center justify-center bg-black transition-opacity ease-[cubic-bezier(.22,.8,.2,1)] ${
         overlayExpanded ? "opacity-100" : "opacity-0"
       }`}
-      style={{ transitionDuration: `${fallbackDurationMs}ms` }}
+      // Fade mode uses a neutral white flash; keyhole mode keeps black background.
+      style={{
+        transitionDuration: `${fallbackDurationMs}ms`,
+        backgroundColor: overlayStyle === "fade" ? "#fff" : "#000",
+      }}
     >
       <div
         className={`h-12 w-6 bg-[url('/Keyhole.svg')] bg-contain bg-center bg-no-repeat transition-transform ease-[cubic-bezier(.22,.8,.2,1)] ${
-          overlayExpanded ? "scale-[120]" : "scale-0"
+          overlayStyle === "fade" ? "scale-0 opacity-0" : overlayExpanded ? "scale-[120]" : "scale-0"
         }`}
         style={{ transitionDuration: `${fallbackDurationMs}ms` }}
       />

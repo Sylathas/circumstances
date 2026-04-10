@@ -13,6 +13,7 @@ import { useAuth } from "./auth/AuthContext";
 import type { ProjectType } from "@/app/types/project";
 import SongBar from "./songs/SongBar";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
+import { navigateWithBlurTransition } from "@/app/utils/blurRouteTransition";
 
 const HOME_ROUTES = new Set(["/", "/home", "/circumstances", "/circumstances/"]);
 
@@ -38,6 +39,7 @@ function shouldDisableShapeViewTransition(): boolean {
 function useHomeTransition() {
   const router = useRouter();
   const pathname = usePathname();
+  const isMobile = useIsMobile();
   useEffect(() => {
     router.prefetch("/home");
   }, [router]);
@@ -45,14 +47,6 @@ function useHomeTransition() {
   return (e: React.MouseEvent) => {
     if (HOME_ROUTES.has(pathname ?? "")) return; // already home
     e.preventDefault();
-    const doc = document as Document & {
-      startViewTransition?: (cb: () => void) => { finished: Promise<void> };
-    };
-    if (shouldUseSimpleFadeNavigation()) {
-      sessionStorage.setItem("route-shape-nav", "1");
-      router.push("/home");
-      return;
-    }
     const triggerOverlayFallback = () => {
       const notCancelled = window.dispatchEvent(
         new CustomEvent("keychain:route-transition", {
@@ -64,6 +58,18 @@ function useHomeTransition() {
         router.push("/home");
       }
     };
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+    };
+    if (shouldUseSimpleFadeNavigation()) {
+      navigateWithBlurTransition({
+        router,
+        fromPath: pathname ?? "/",
+        toPath: "/home",
+        isMobile,
+      });
+      return;
+    }
     if (
       typeof doc.startViewTransition === "function" &&
       !shouldDisableShapeViewTransition()
@@ -125,9 +131,21 @@ export function Header({
   saveState = "idle",
   showCategoryFilters = false,
 }: HeaderProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const { isAdmin, signOut } = useAuth();
   const isMobile = useIsMobile();
   const handleHomeClick = useHomeTransition();
+  const handleBackClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!backHref) return;
+    e.preventDefault();
+    navigateWithBlurTransition({
+      router,
+      fromPath: pathname ?? "/",
+      toPath: backHref,
+      isMobile,
+    });
+  };
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between bg-transparent px-4 py-2 text-black mix-blend-difference text-white">
@@ -158,14 +176,14 @@ export function Header({
             </nav>
           )}
         </div>
-        <div className="flex-1 min-w-0 px-3 wtf">
+        <div className={`flex-1 min-w-0 ${!isMobile && "px-3"}`}>
           <SongBar />
         </div>
         <div className="flex items-center gap-6 shrink-0">
           {backHref != null && isMobile && (
             <Link
               href={backHref}
-              onClick={backHref === "/home" ? handleHomeClick : undefined}
+              onClick={handleBackClick}
               className="font-inherit text-xs font-normal no-underline"
               style={{ fontWeight: 500 }}
             >
@@ -201,18 +219,8 @@ export function Header({
       </header>
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between bg-transparent px-2 py-2 text-black mix-blend-difference text-white">
-          {backHref != null && (
-            <Link
-              href={backHref}
-              onClick={backHref === "/home" ? handleHomeClick : undefined}
-              className="font-inherit text-xs font-normal no-underline shrink-0"
-              style={{ fontWeight: 500 }}
-            >
-              BACK
-            </Link>
-          )}
           {showCategoryFilters && isMobile && (
-            <nav className="flex items-center gap-15 my-3" style={{ fontWeight: 600 }}>
+            <nav className="flex items-center justify-between my-3 w-full" style={{ fontWeight: 600 }}>
               {CATEGORIES.map((label) => {
                 const type = TYPE_MAP[label];
                 const isActive = activeFilters.has(type);

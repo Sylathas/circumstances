@@ -84,7 +84,7 @@ function ClientsSection({
       >
         CLIENTS
       </h2>
-      <div className={`grid grid-cols-2 gap-y-1 text-[#171717] w-full ${isMobile ? "max-w-1/2" : "max-w-1/5"}`}>
+      <div className={`grid grid-cols-2 gap-y-1 text-[#171717] w-full ${isMobile ? "max-w-3/4" : "max-w-1/5"}`}>
         {items.map((value, index) => (
           <div
             key={index}
@@ -148,7 +148,7 @@ function ServicesSection({
       >
         SERVICES
       </h2>
-      <div className={`grid grid-cols-2 gap-x-2 text-[#171717] w-full ${isMobile ? "max-w-1/2" : "max-w-1/5"}`}>
+      <div className={`grid grid-cols-2 gap-x-2 text-[#171717] w-full ${isMobile ? "max-w-3/4" : "max-w-1/5"}`}>
         {items.map((value, index) => (
           <div
             key={index}

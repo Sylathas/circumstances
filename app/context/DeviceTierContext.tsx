@@ -41,17 +41,16 @@ export function DeviceTierProvider({ children }: { children: React.ReactNode }) 
     const t = detectDeviceTier();
     setDetectedTier(t);
 
-    // Async Battery API downgrade (Chrome only)
+    // Downgrade to battery-saver on constrained hardware.
+    // Uses deviceMemory + hardwareConcurrency instead of the deprecated Battery API
+    // (getBattery was Chrome-only and is being removed).
     if (t !== "desktop") return;
-    const nav = navigator as Navigator & {
-      getBattery?: () => Promise<{ level: number; charging: boolean }>;
-    };
-    if (typeof nav.getBattery !== "function") return;
-    nav.getBattery().then((battery) => {
-      if (!battery.charging && battery.level < 0.2) {
-        setDetectedTier("battery-saver");
-      }
-    }).catch(() => { /* ignore */ });
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    const memory = nav.deviceMemory ?? 4; // GB; undefined means we assume capable
+    const cores = navigator.hardwareConcurrency ?? 4;
+    if (memory <= 2 || cores <= 2) {
+      setDetectedTier("battery-saver");
+    }
   }, []);
 
   const tier = tierOverride ?? detectedTier;

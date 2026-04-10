@@ -46,9 +46,15 @@ export function VideoBacklight({ videoRef, emissiveIntensity = 0.35 }: VideoBack
     return t;
   }, [videoReady, videoRef]);
 
-  // Mark texture for update each frame so it stays in sync with the video
+  // Stable Color instance — avoids allocating a new object every render.
+  const emissiveColor = useMemo(() => new THREE.Color(1, 1, 1), []);
+
+  // Mark texture dirty only when the video is actually advancing.
+  // Skipping needsUpdate on a paused/ended video saves a GPU upload each frame.
   useFrame(() => {
-    if (texture) texture.needsUpdate = true;
+    const el = videoRef.current;
+    if (texture && el && !el.paused && !el.ended) texture.needsUpdate = true;
+
     const mesh = meshRef.current;
     if (!mesh) return;
     if (!(camera instanceof THREE.PerspectiveCamera)) return;
@@ -67,7 +73,7 @@ export function VideoBacklight({ videoRef, emissiveIntensity = 0.35 }: VideoBack
       <meshStandardMaterial
         ref={materialRef}
         emissiveMap={texture}
-        emissive={new THREE.Color(1, 1, 1)}
+        emissive={emissiveColor}
         emissiveIntensity={emissiveIntensity}
         toneMapped
       />

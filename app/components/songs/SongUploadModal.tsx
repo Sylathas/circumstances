@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FirebaseError } from "firebase/app";
-import { useSong } from "./SongProvider";
+import { useSongStable } from "./SongProvider";
 import { uploadFile } from "@/app/utils/storage";
 import { addDoc, collection, getDocs, orderBy, limit, query } from "firebase/firestore";
 import { db } from "@/app/components/firebase/firebaseConfig";
@@ -26,7 +26,7 @@ export default function SongUploadModal({
 }: {
   onClose: () => void;
 }) {
-  const { songs, refetchSongs, reorderSongs, removeSong } = useSong();
+  const { songs, refetchSongs, reorderSongs, removeSong } = useSongStable();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = useState(false);

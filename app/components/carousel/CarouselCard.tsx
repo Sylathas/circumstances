@@ -22,8 +22,8 @@ const CARD_WIDTH = 2.5;
 const CARD_HEIGHT = 4;
 const CARD_DEPTH = 0.08;
 
-const CARD_WIDTH_MOBILE = 3;
-const CARD_HEIGHT_MOBILE = 2;
+const CARD_WIDTH_MOBILE = 3.5;
+const CARD_HEIGHT_MOBILE = 2.5;
 
 const HOVER_SCALE = 1.1;
 const SCALE_LERP = 0.05;
@@ -113,7 +113,10 @@ export const ProjectCard = forwardRef<THREE.Group, ProjectCardProps>(
 
     useFrame(() => {
       const target = hovered ? HOVER_SCALE : 1;
-      scaleRef.current += (target - scaleRef.current) * SCALE_LERP;
+      const diff = target - scaleRef.current;
+      // Skip write when the scale has fully settled to avoid redundant GPU uploads.
+      if (Math.abs(diff) < 0.001) return;
+      scaleRef.current += diff * SCALE_LERP;
       const g = scaleGroupRef.current;
       if (g) g.scale.setScalar(scaleRef.current);
     });

@@ -53,6 +53,19 @@ export const ANIMATION_CONFIG = {
     fadeDuration: 0.25, // seconds for page fade; 0.15–0.5
     fadeEase: "easeInOut" as "easeInOut" | "linear",
   },
+  routeBlurTransition: {
+    durationMs: 1000, // shared route blur crossfade duration; 400–1500
+    maxBlurPx: 10, // max blur for old/new snapshots; 4–24
+    ease: "cubic-bezier(0.22, 0.8, 0.2, 1)", // smooth, cinematic ease
+    phaseInMs: 500, // step 1 -> step 2
+    phaseOutMs: 500, // step 2 -> step 4 when destination is not yet ready
+    phaseOutFastMs: 500, // step 2 -> step 4 when destination is ready "on time"
+    pushDelayMs: 120, // delay before router.push so blur is already visible
+    maxWaitMs: 3500, // hard cap while waiting for destination ready signal
+    homeMaxWaitMs: 12000, // home can take longer due intro/canvas initialization
+    holdOpacity: 1, // overlay opacity while waiting at step 2
+    holdBackgroundAlpha: 1, // white tint while waiting at step 2
+  },
   gallery: {
     dragThreshold: 5, // px before a drag is recognized; 3–15 (for future use)
   },

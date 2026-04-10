@@ -7,7 +7,10 @@
  */
 
 import { motion, type Variants } from "framer-motion";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { usePathname } from "next/navigation";
+import { ANIMATION_CONFIG } from "@/app/config/animation";
+import { emitRouteReady } from "@/app/utils/routeReady";
 
 export type TransitionType = "fade" | "slide" | "slideUp" | "morph";
 
@@ -34,7 +37,10 @@ const transitionVariants: Record<TransitionType, Variants> = {
   },
 };
 
-const defaultTransition = { duration: 0.25, ease: "easeInOut" };
+const defaultTransition = {
+  duration: ANIMATION_CONFIG.pageTransition.fadeDuration,
+  ease: ANIMATION_CONFIG.pageTransition.fadeEase,
+};
 
 export type PageTransitionProps = {
   children: React.ReactNode;
@@ -47,12 +53,20 @@ export function PageTransition({
   type = "fade",
   className,
 }: PageTransitionProps) {
+  const pathname = usePathname();
   const skipMotionOnce = useMemo(() => {
     if (typeof window === "undefined") return false;
     const shouldSkip = sessionStorage.getItem("route-shape-nav") === "1";
     if (shouldSkip) sessionStorage.removeItem("route-shape-nav");
     return shouldSkip;
   }, []);
+
+  useEffect(() => {
+    const a = requestAnimationFrame(() => {
+      requestAnimationFrame(() => emitRouteReady(pathname ?? "/"));
+    });
+    return () => cancelAnimationFrame(a);
+  }, [pathname, skipMotionOnce]);
 
   if (skipMotionOnce) {
     return <div className={className}>{children}</div>;

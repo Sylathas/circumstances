@@ -24,15 +24,19 @@ import { useAuth } from "@/app/components/auth/AuthContext";
 import type { Song } from "@/app/types/song";
 import { deleteFileByUrl } from "@/app/utils/storage";
 
-type SongPlayerState = {
+/**
+ * Stable state — everything except high-frequency playback position.
+ * Changes only when the song list, active track, or auth state changes.
+ * Components that don't need a live progress bar should consume this context
+ * (via useSongStable) to avoid the ~4 Hz re-renders driven by currentTime.
+ */
+type SongStableState = {
   songs: Song[];
   songsLoading: boolean;
   songsError: string | null;
   activeSong: Song | null;
-  isPlaying: boolean;
-  duration: number;
-  currentTime: number;
   hasUserStarted: boolean;
+  canUpload: boolean;
   startPlayback: () => void;
   togglePlayPause: () => void;
   seekTo: (timeSeconds: number) => void;
@@ -41,15 +45,39 @@ type SongPlayerState = {
   refetchSongs: () => Promise<void>;
   reorderSongs: (orderedIds: string[]) => Promise<void>;
   removeSong: (songId: string) => Promise<void>;
-  // Admin upload
-  canUpload: boolean;
 };
 
-const SongContext = createContext<SongPlayerState | null>(null);
+/**
+ * High-frequency playback state — updates ~4× per second while audio is playing.
+ * Only components that render a progress bar / time display should consume this.
+ */
+type SongPlaybackState = {
+  isPlaying: boolean;
+  duration: number;
+  currentTime: number;
+};
 
+/** Combined shape kept for backward compatibility with useSong(). */
+type SongPlayerState = SongStableState & SongPlaybackState;
+
+const SongStableContext = createContext<SongStableState | null>(null);
+const SongPlaybackContext = createContext<SongPlaybackState | null>(null);
+
+/** Full song state — use in components that need the progress bar (SongBar). */
 export function useSong(): SongPlayerState {
-  const v = useContext(SongContext);
-  if (!v) throw new Error("useSong must be used within SongProvider");
+  const stable = useContext(SongStableContext);
+  const playback = useContext(SongPlaybackContext);
+  if (!stable || !playback) throw new Error("useSong must be used within SongProvider");
+  return { ...stable, ...playback };
+}
+
+/**
+ * Stable song state only — use in components that don't render audio progress.
+ * These components won't re-render on every currentTime tick.
+ */
+export function useSongStable(): SongStableState {
+  const v = useContext(SongStableContext);
+  if (!v) throw new Error("useSongStable must be used within SongProvider");
   return v;
 }
 
@@ -296,16 +324,17 @@ export function SongProvider({ children }: { children: React.ReactNode }) {
     };
   }, [playNext]);
 
-  const value = useMemo<SongPlayerState>(
+  // Stable context — only re-creates when song list / auth / callbacks change.
+  // Does NOT include isPlaying / currentTime / duration so that high-frequency
+  // playback ticks don't propagate into every consumer.
+  const stableValue = useMemo<SongStableState>(
     () => ({
       songs,
       songsLoading,
       songsError,
       activeSong,
-      isPlaying,
-      duration,
-      currentTime,
       hasUserStarted,
+      canUpload,
       startPlayback,
       togglePlayPause,
       seekTo,
@@ -314,17 +343,14 @@ export function SongProvider({ children }: { children: React.ReactNode }) {
       refetchSongs,
       reorderSongs,
       removeSong,
-      canUpload,
     }),
     [
       songs,
       songsLoading,
       songsError,
       activeSong,
-      isPlaying,
-      duration,
-      currentTime,
       hasUserStarted,
+      canUpload,
       startPlayback,
       togglePlayPause,
       seekTo,
@@ -333,16 +359,24 @@ export function SongProvider({ children }: { children: React.ReactNode }) {
       refetchSongs,
       reorderSongs,
       removeSong,
-      canUpload,
     ]
   );
 
+  // Playback context — updates ~4× per second while audio is playing.
+  // Only SongBar (and similar progress-rendering components) should read this.
+  const playbackValue = useMemo<SongPlaybackState>(
+    () => ({ isPlaying, duration, currentTime }),
+    [isPlaying, duration, currentTime]
+  );
+
   return (
-    <SongContext.Provider value={value}>
-      {/* Hidden audio element shared across pages */}
-      <audio ref={audioRef} preload="metadata" style={{ display: "none" }} />
-      {children}
-    </SongContext.Provider>
+    <SongStableContext.Provider value={stableValue}>
+      <SongPlaybackContext.Provider value={playbackValue}>
+        {/* Hidden audio element shared across pages */}
+        <audio ref={audioRef} preload="metadata" style={{ display: "none" }} />
+        {children}
+      </SongPlaybackContext.Provider>
+    </SongStableContext.Provider>
   );
 }
 

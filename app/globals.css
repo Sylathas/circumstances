@@ -7,6 +7,9 @@
   --route-shape-duration: 2000ms;
   --route-shape-ease: cubic-bezier(0.628, 0.005, 0.2, 1);
   --route-shape-start-inset: 50% 50% 50% 50%;
+  --route-blur-duration: 1000ms;
+  --route-blur-max-blur: 12px;
+  --route-blur-ease: cubic-bezier(0.22, 0.8, 0.2, 1);
 }
 
 @theme inline {
@@ -129,5 +132,44 @@ body {
   to {
     -webkit-mask-size: 0vmax auto;
     mask-size: 0vmax auto;
+  }
+}
+
+/* Route transition blur crossfade (mobile all routes, selected desktop routes). */
+@supports (view-transition-name: root) {
+  :root.route-blur-vt::view-transition-group(root) {
+    animation: none;
+  }
+
+  :root.route-blur-vt::view-transition-old(root) {
+    animation: route-blur-old var(--route-blur-duration) var(--route-blur-ease) both;
+  }
+
+  :root.route-blur-vt::view-transition-new(root) {
+    animation: route-blur-new var(--route-blur-duration) var(--route-blur-ease) both;
+  }
+}
+
+@keyframes route-blur-old {
+  from {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 0;
+    filter: blur(var(--route-blur-max-blur));
+  }
+}
+
+@keyframes route-blur-new {
+  from {
+    opacity: 0;
+    filter: blur(var(--route-blur-max-blur));
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
   }
 }
