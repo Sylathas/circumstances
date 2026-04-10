@@ -1,3 +1,11 @@
+"use client";
+
+/**
+ * KeyClone renders a static clone of the key at the captured transform once the lock is opened.
+ * It uses the same geometry and white material as the animated key but no interaction or animation.
+ * Used by Door when phase reaches 'door' to leave the key in the keyhole.
+ */
+
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { useMemo, useRef, useEffect } from 'react'

@@ -1,20 +1,20 @@
+/**
+ * RootLayout configures global fonts, HTML shell, and wraps all pages in the AuthProvider.
+ * Required by Next.js App Router; used implicitly by every route in the app.
+ */
+
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "./components/auth/AuthContext";
+import RouteShapeTransitionManager from "./components/RouteShapeTransitionManager";
+import { SongProvider } from "./components/songs/SongProvider";
+import { LoadingProvider } from "./context/LoadingContext";
+import { LoadingScreen } from "./components/loading/LoadingScreen";
+import { DeviceTierProvider } from "./context/DeviceTierContext";
 
 const featureMono = localFont({
   src: [
-    {
-      path: './fonts/FeatureMono-Hairline.ttf',
-      weight: '100',
-      style: 'normal',
-    },
-    {
-      path: './fonts/FeatureMono-Thin.ttf',
-      weight: '200',
-      style: 'normal',
-    },
     {
       path: './fonts/FeatureMono-Light.ttf',
       weight: '300',
@@ -59,7 +59,15 @@ export default function RootLayout({
         className={`${featureMono.className} antialiased`}
       >
         <AuthProvider>
-          {children}
+          <DeviceTierProvider>
+            <LoadingProvider>
+              <SongProvider>
+                <RouteShapeTransitionManager />
+                <LoadingScreen />
+                {children}
+              </SongProvider>
+            </LoadingProvider>
+          </DeviceTierProvider>
         </AuthProvider>
       </body>
     </html>

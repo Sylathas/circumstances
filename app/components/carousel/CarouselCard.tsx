@@ -1,34 +1,111 @@
 "use client";
 
+/**
+ * CarouselCard exports 3D card primitives used by the project carousel.
+ * ProjectCard shows a textured cover with hover scaling, PlaceholderCard renders a neutral slot, and AddCard shows a plus card for creating projects.
+ * Used only inside CarouselScene.
+ */
+
 import { forwardRef, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import { useMemo } from "react";
+import {
+  ROUGHNESS_MR_TEXTURE_URL,
+  ROUGHNESS_ZOOM,
+  useRoughnessFromMRMap,
+} from "./carouselRoughness";
+import { useDeviceTier } from "@/app/context/DeviceTierContext";
 
 const CARD_WIDTH = 2.5;
 const CARD_HEIGHT = 4;
 const CARD_DEPTH = 0.08;
 
+const CARD_WIDTH_MOBILE = 3;
+const CARD_HEIGHT_MOBILE = 2;
+
 const HOVER_SCALE = 1.1;
 const SCALE_LERP = 0.05;
+
+/** CARD COVER FIT LOGIC (non-stretch, contain) is implemented in fitCoverTextureToPlane below. */
+
+/**
+ * fitCoverTextureToPlane
+ *
+ * Given a texture and the physical size of the card plane, adjust the texture’s
+ * repeat/center so that:
+ * - the final rendered image keeps its original aspect ratio (no stretching)
+ * - the image is fully visible (contain, not cover)
+ * - the image is centered on the plane
+ *
+ * This is the equivalent of CSS `background-size: contain` for the card cover.
+ */
+function fitCoverTextureToPlane(
+  coverTex: THREE.Texture,
+  planeWidth: number,
+  planeHeight: number
+) {
+  const image: any = coverTex.image;
+  if (!image || !image.width || !image.height || planeWidth <= 0 || planeHeight <= 0) {
+    coverTex.center.set(0.5, 0.5);
+    coverTex.repeat.set(1, 1);
+    coverTex.offset.set(0, 0);
+    coverTex.needsUpdate = true;
+    return;
+  }
+
+  const imgAspect = image.width / image.height; // Wimg / Himg
+  const planeAspect = planeWidth / planeHeight; // Wplane / Hplane
+  const k = imgAspect / planeAspect; // desiredAspect / planeAspect
+
+  let repeatX = 1;
+  let repeatY = 1;
+  if (k >= 1) {
+    // Image wider than plane: fill width, letterbox top/bottom.
+    repeatX = 1;
+    repeatY = 1 / k;
+  } else {
+    // Image taller than plane: fill height, letterbox left/right.
+    repeatX = 1 / k;
+    repeatY = 1;
+  }
+
+  coverTex.center.set(0.5, 0.5);
+  coverTex.repeat.set(repeatX, repeatY);
+  coverTex.offset.set(0, 0);
+  coverTex.needsUpdate = true;
+}
 
 type ProjectCardProps = {
   coverUrl: string;
   position: [number, number, number];
   onClick?: () => void;
+  isMobile: boolean;
 };
 
 const PLANE_MARGIN = 0.1;
 
 export const ProjectCard = forwardRef<THREE.Group, ProjectCardProps>(
-  function ProjectCard({ coverUrl, position, onClick }, ref) {
-    const texture = useTexture(coverUrl);
+  function ProjectCard({ coverUrl, position, onClick, isMobile }, ref) {
+    const { tier } = useDeviceTier();
+    const roughnessEnabled = tier !== "mobile" && tier !== "battery-saver";
+    const coverTex = useTexture(coverUrl);
+    const planeWidth = isMobile
+      ? CARD_WIDTH_MOBILE - PLANE_MARGIN
+      : CARD_WIDTH - PLANE_MARGIN;
+    const planeHeight = isMobile
+      ? CARD_HEIGHT_MOBILE - PLANE_MARGIN
+      : CARD_HEIGHT - PLANE_MARGIN;
     const texMemo = useMemo(() => {
-      texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.colorSpace = THREE.SRGBColorSpace;
-      return texture;
-    }, [coverUrl, texture]);
+      coverTex.wrapS = coverTex.wrapT = THREE.ClampToEdgeWrapping;
+      coverTex.colorSpace = THREE.SRGBColorSpace;
+      fitCoverTextureToPlane(coverTex, planeWidth, planeHeight);
+      return coverTex;
+    }, [coverUrl, coverTex, planeWidth, planeHeight]);
+    const repeatW = isMobile ? CARD_WIDTH_MOBILE * ROUGHNESS_ZOOM : CARD_WIDTH * ROUGHNESS_ZOOM;
+    const repeatH = isMobile ? CARD_HEIGHT_MOBILE * ROUGHNESS_ZOOM : CARD_HEIGHT * ROUGHNESS_ZOOM;
+    const roughnessTex = useRoughnessFromMRMap(ROUGHNESS_MR_TEXTURE_URL, repeatW, repeatH, roughnessEnabled);
 
     const scaleGroupRef = useRef<THREE.Group>(null);
     const [hovered, setHovered] = useState(false);
@@ -62,14 +139,16 @@ export const ProjectCard = forwardRef<THREE.Group, ProjectCardProps>(
         <group ref={scaleGroupRef}>
           {/* Glass draws first (renderOrder 0) so transmission samples the scene/other cards; then plane draws on top (renderOrder 1) */}
           <mesh renderOrder={0} {...pointerProps}>
-            <boxGeometry args={[CARD_WIDTH - 0.01, CARD_HEIGHT - 0.01, CARD_DEPTH]} />
+            <boxGeometry args={[isMobile ? CARD_WIDTH_MOBILE - 0.01 : CARD_WIDTH - 0.01, isMobile ? CARD_HEIGHT_MOBILE - 0.01 : CARD_HEIGHT - 0.01, CARD_DEPTH]} />
             <meshPhysicalMaterial
-              transmission={0.99}
-              roughness={0.1}
+              transmission={0.98}
+              roughness={0.3}
+              roughnessMap={roughnessTex ?? undefined}
               metalness={0.0}
-              ior={1.45}
+              ior={1.5}
               clearcoat={1.0}
-              clearcoatRoughness={0.03}
+              clearcoatRoughness={0.1}
+              clearcoatRoughnessMap={roughnessTex ?? undefined}
               envMapIntensity={1.5}
               transparent={true}
               side={THREE.DoubleSide}
@@ -82,7 +161,7 @@ export const ProjectCard = forwardRef<THREE.Group, ProjectCardProps>(
             {...pointerProps}
           >
             <planeGeometry
-              args={[CARD_WIDTH - PLANE_MARGIN, CARD_HEIGHT - PLANE_MARGIN]}
+              args={[isMobile ? CARD_WIDTH_MOBILE - PLANE_MARGIN : CARD_WIDTH - PLANE_MARGIN, isMobile ? CARD_HEIGHT_MOBILE - PLANE_MARGIN : CARD_HEIGHT - PLANE_MARGIN]}
             />
             <meshBasicMaterial
               map={texMemo}
@@ -100,20 +179,28 @@ export const ProjectCard = forwardRef<THREE.Group, ProjectCardProps>(
 
 type PlaceholderCardProps = {
   position: [number, number, number];
+  isMobile: boolean;
 };
 
 export const PlaceholderCard = forwardRef<THREE.Mesh, PlaceholderCardProps>(
-  function PlaceholderCard({ position }, ref) {
+  function PlaceholderCard({ position, isMobile }, ref) {
+    const { tier } = useDeviceTier();
+    const roughnessEnabled = tier !== "mobile" && tier !== "battery-saver";
+    const repeatW = isMobile ? CARD_WIDTH_MOBILE * ROUGHNESS_ZOOM : CARD_WIDTH * ROUGHNESS_ZOOM;
+    const repeatH = isMobile ? CARD_HEIGHT_MOBILE * ROUGHNESS_ZOOM : CARD_HEIGHT * ROUGHNESS_ZOOM;
+    const roughnessTex = useRoughnessFromMRMap(ROUGHNESS_MR_TEXTURE_URL, repeatW, repeatH, roughnessEnabled);
     return (
       <mesh ref={ref} position={position}>
-        <boxGeometry args={[CARD_WIDTH, CARD_HEIGHT, CARD_DEPTH]} />
+        <boxGeometry args={[isMobile ? CARD_WIDTH_MOBILE : CARD_WIDTH, isMobile ? CARD_HEIGHT_MOBILE : CARD_HEIGHT, CARD_DEPTH]} />
         <meshPhysicalMaterial
           transmission={0}
-          roughness={0.05}
+          roughness={0.15}
+          roughnessMap={roughnessTex ?? undefined}
           metalness={0.0}
           ior={1.45}
           clearcoat={1.0}
-          clearcoatRoughness={0.03}
+          clearcoatRoughness={0.12}
+          clearcoatRoughnessMap={roughnessTex ?? undefined}
           envMapIntensity={1.5}
           transparent={true}
           side={THREE.DoubleSide}
@@ -127,10 +214,16 @@ export const PlaceholderCard = forwardRef<THREE.Mesh, PlaceholderCardProps>(
 type AddCardProps = {
   position: [number, number, number];
   onClick: () => void;
+  isMobile: boolean;
 };
 
 export const AddCard = forwardRef<THREE.Group, AddCardProps>(
-  function AddCard({ position, onClick }, ref) {
+  function AddCard({ position, onClick, isMobile }, ref) {
+    const { tier } = useDeviceTier();
+    const roughnessEnabled = tier !== "mobile" && tier !== "battery-saver";
+    const repeatW = isMobile ? CARD_WIDTH_MOBILE * ROUGHNESS_ZOOM : CARD_WIDTH * ROUGHNESS_ZOOM;
+    const repeatH = isMobile ? CARD_HEIGHT_MOBILE * ROUGHNESS_ZOOM : CARD_HEIGHT * ROUGHNESS_ZOOM;
+    const roughnessTex = useRoughnessFromMRMap(ROUGHNESS_MR_TEXTURE_URL, repeatW, repeatH, roughnessEnabled);
     return (
       <group ref={ref} position={position}>
         <mesh
@@ -140,14 +233,16 @@ export const AddCard = forwardRef<THREE.Group, AddCardProps>(
             onClick();
           }}
         >
-          <boxGeometry args={[CARD_WIDTH, CARD_HEIGHT, CARD_DEPTH]} />
+          <boxGeometry args={[isMobile ? CARD_WIDTH_MOBILE : CARD_WIDTH, isMobile ? CARD_HEIGHT_MOBILE : CARD_HEIGHT, CARD_DEPTH]} />
           <meshPhysicalMaterial
-            transmission={0.95}
-            roughness={0.05}
+            transmission={0.98}
+            roughness={0.3}
+            roughnessMap={roughnessTex ?? undefined}
             metalness={0.0}
-            ior={1.45}
+            ior={1.5}
             clearcoat={1.0}
-            clearcoatRoughness={0.03}
+            clearcoatRoughness={0.1}
+            clearcoatRoughnessMap={roughnessTex ?? undefined}
             envMapIntensity={1.5}
             transparent={true}
             side={THREE.DoubleSide}

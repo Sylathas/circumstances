@@ -20,3 +20,16 @@ export interface Project {
   /** Optional. Each entry is columns for that row (1 or 2). Default row is 2. */
   "Row Layouts"?: RowLayout[];
 }
+
+export interface StudioDocument {
+  about: string;
+  Services: string[];
+  /** Firestore field is "Clients" (capital C) for consistency with Services. */
+  Clients?: string[];
+}
+
+export interface DiaryEntry {
+  id: string;
+  cover: string;
+  description: string;
+}

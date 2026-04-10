@@ -1,14 +1,20 @@
 "use client";
 
+/**
+ * SortableMediaItem renders a single image or video tile that can be reordered via dnd-kit.
+ * It reports its intrinsic dimensions once loaded so the gallery can compute row layouts.
+ * Used only within MediaGallery.
+ */
+
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import Image from "next/image";
 import type { MediaItem } from "../utils/projectData";
 
 type SortableMediaItemProps = {
   item: MediaItem;
   isAdmin: boolean;
   layout: "landscape" | "portrait";
-  maxHeight: number;
   onDimensions?: (url: string, width: number, height: number) => void;
 };
 
@@ -16,7 +22,6 @@ export default function SortableMediaItem({
   item,
   isAdmin,
   layout,
-  maxHeight,
   onDimensions,
 }: SortableMediaItemProps) {
   const {
@@ -35,10 +40,12 @@ export default function SortableMediaItem({
 
   const content =
     item.type === "image" ? (
-      <img
+      <Image
         src={item.url}
         alt=""
-        className="h-full w-full object-cover"
+        fill
+        sizes="(max-width: 768px) 100vw, 50vw"
+        className="object-cover"
         onLoad={(e) => {
           const el = e.target;
           if (el instanceof HTMLImageElement && el.naturalWidth && onDimensions) {
@@ -63,7 +70,7 @@ export default function SortableMediaItem({
     );
 
   const box = (
-    <div className="h-full min-h-0 w-full overflow-hidden bg-white">
+    <div className="relative h-full min-h-0 w-full overflow-hidden bg-white">
       {content}
     </div>
   );

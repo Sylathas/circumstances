@@ -1,11 +1,19 @@
 "use client";
 
+/**
+ * CarouselScene renders the 3D rotating carousel of project cards with drag and programmatic navigation.
+ * It accepts the project list, admin flags, active index, and callbacks for index changes, add-click, and project-click.
+ * Used on the home page to browse and select projects.
+ */
+
 import React, { useRef, useEffect, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
 import * as THREE from "three";
 import type { Project } from "@/app/types/project";
-import { ProjectCard, PlaceholderCard, AddCard } from "./CarouselCard";
+import { CarouselGroup } from "./CarouselGroup";
+import { ANIMATION_CONFIG } from "@/app/config/animation";
 
 class CardErrorBoundary extends React.Component<
   { fallback: React.ReactNode; children: React.ReactNode },
@@ -21,23 +29,9 @@ class CardErrorBoundary extends React.Component<
   }
 }
 
-const RADIUS = 3;
-/** Camera distance from origin: circle sits closer to the screen */
-const CAMERA_OFFSET = 10;
-/** Pixels to drag = 1 slot rotation */
-const DRAG_SENSITIVITY = 0.008;
+const CAMERA_OFFSET = ANIMATION_CONFIG.carousel.cameraOffset;
+const DRAG_SENSITIVITY = ANIMATION_CONFIG.carousel.dragSensitivity;
 
-// Position on circle: card at index p is at angle p * angleStep.
-function circlePosition(
-  p: number,
-  radius: number,
-  angleStep: number
-): [number, number, number] {
-  const angle = p * angleStep;
-  return [radius * Math.sin(angle), 0, radius * Math.cos(angle)];
-}
-
-// BoxGeometry’s “front” face used for the main view is -Z; tangent at θ is (cos θ, 0, -sin θ), so rotation.y = π/2 - θ.
 export type ScrollEasing = "linear" | "easeOut";
 
 type CarouselSceneProps = {
@@ -47,12 +41,9 @@ type CarouselSceneProps = {
   onActiveIndexChange: (index: number) => void;
   onAddClick: () => void;
   onProjectClick: (index: number) => void;
-  /** Scroll speed: indices per second (linear) or time constant (easeOut). Default 2 */
   scrollSpeed?: number;
   scrollEasing?: ScrollEasing;
-  /** When the card is this close to "front" (in slot distance), it fully faces the screen. Default 0.2 */
   frontTurnNear?: number;
-  /** When the card is beyond this distance from "front", it stays tangent. Default 0.6. Larger = slower turn. */
   frontTurnFar?: number;
 };
 
@@ -63,21 +54,29 @@ export default function CarouselScene({
   onActiveIndexChange,
   onAddClick,
   onProjectClick,
-  scrollSpeed = 2,
-  scrollEasing = "easeOut",
-  frontTurnNear = 0.3,
-  frontTurnFar = 0.7,
+  scrollSpeed = ANIMATION_CONFIG.carousel.scrollSpeed,
+  scrollEasing = ANIMATION_CONFIG.carousel.scrollEasing,
+  frontTurnNear = ANIMATION_CONFIG.carousel.frontTurnNear,
+  frontTurnFar = ANIMATION_CONFIG.carousel.frontTurnFar,
 }: CarouselSceneProps) {
   const scrollRef = useRef(0);
   const targetRef = useRef(0);
   const lastReportedRef = useRef(-1);
-  const dragRef = useRef({ active: false, startX: 0, startTarget: 0 });
+  const dragRef = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    startTarget: 0,
+  });
 
   const N = projects.length + (isAdmin ? 1 : 0);
   const numSlots = Math.max(1, N);
   const angleStep = (2 * Math.PI) / numSlots;
-
-  // When parent sets activeIndex (e.g. filter), jump target to that card. Skip while dragging so easing isn’t overridden.
+  const isMobile = useIsMobile();
+  const radius = isMobile
+    ? ANIMATION_CONFIG.carousel.arcRadiusMobile
+    : ANIMATION_CONFIG.carousel.arcRadiusDesktop;
+  const [isDragging, setIsDragging] = useState(false);
   useEffect(() => {
     if (dragRef.current.active) return;
     const current = scrollRef.current;
@@ -91,24 +90,36 @@ export default function CarouselScene({
     }
   }, [activeIndex, numSlots]);
 
-  // Drag: update target from pointer movement (attach to container so it works over empty space too)
   useEffect(() => {
     const container = document.querySelector("[data-carousel-container]");
     if (!container) return;
+
+    const DRAG_CLICK_THRESHOLD_PX = 5;
 
     const onDown = (e: Event) => {
       const pe = e as PointerEvent;
       dragRef.current = {
         active: true,
         startX: pe.clientX,
+        startY: pe.clientY,
         startTarget: targetRef.current,
       };
+      setIsDragging(false);
     };
     const onMove = (e: Event) => {
       if (!dragRef.current.active) return;
       const pe = e as PointerEvent;
       const dx = pe.clientX - dragRef.current.startX;
-      targetRef.current = dragRef.current.startTarget - dx * DRAG_SENSITIVITY;
+      const dy = pe.clientY - dragRef.current.startY;
+      const delta = isMobile ? dy : -dx;
+      if (
+        !isDragging &&
+        Math.hypot(dx, dy) > DRAG_CLICK_THRESHOLD_PX
+      ) {
+        setIsDragging(true);
+      }
+      targetRef.current =
+        dragRef.current.startTarget + delta * DRAG_SENSITIVITY;
       const wrapped =
         ((Math.round(targetRef.current) % numSlots) + numSlots) % numSlots;
       if (wrapped !== lastReportedRef.current) {
@@ -118,6 +129,9 @@ export default function CarouselScene({
     };
     const onUp = () => {
       dragRef.current.active = false;
+      // Allow next pointerdown to be treated as a click again.
+      // We keep isDragging as-is so clicks that fire immediately after a drag
+      // still see isDragging === true and are ignored.
     };
 
     container.addEventListener("pointerdown", onDown);
@@ -130,7 +144,7 @@ export default function CarouselScene({
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointerleave", onUp);
     };
-  }, [numSlots, onActiveIndexChange]);
+  }, [numSlots, onActiveIndexChange, isMobile, isDragging]);
 
   return (
     <div
@@ -152,13 +166,13 @@ export default function CarouselScene({
         style={{ display: "block", width: "100%", height: "100%" }}
       >
         <ambientLight intensity={0.6} />
-        <Environment preset="studio" />
+        <Environment files={"/textures/monochrome_studio_04_1k.exr"} environmentRotation={[-Math.PI / 8, Math.PI / 1.15, 0]} />
         <CarouselGroup
           projects={projects}
           isAdmin={isAdmin}
           onAddClick={onAddClick}
           onProjectClick={onProjectClick}
-          radius={RADIUS}
+          radius={radius}
           angleStep={angleStep}
           numSlots={numSlots}
           scrollRef={scrollRef}
@@ -169,160 +183,11 @@ export default function CarouselScene({
           scrollEasing={scrollEasing}
           frontTurnNear={frontTurnNear}
           frontTurnFar={frontTurnFar}
+          isMobile={isMobile}
+          isDragging={isDragging}
         />
       </Canvas>
     </div>
   );
 }
 
-type CarouselGroupProps = {
-  projects: Project[];
-  isAdmin: boolean;
-  onAddClick: () => void;
-  onProjectClick: (index: number) => void;
-  radius: number;
-  angleStep: number;
-  numSlots: number;
-  scrollRef: React.MutableRefObject<number>;
-  targetRef: React.MutableRefObject<number>;
-  lastReportedRef: React.MutableRefObject<number>;
-  onActiveIndexChange: (index: number) => void;
-  scrollSpeed: number;
-  scrollEasing: ScrollEasing;
-  frontTurnNear: number;
-  frontTurnFar: number;
-};
-
-const _lookAtTarget = new THREE.Vector3();
-const _cameraTarget = new THREE.Vector3();
-
-function smoothstep(edge0: number, edge1: number, x: number): number {
-  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
-}
-
-function CarouselGroup({
-  projects,
-  isAdmin,
-  onAddClick,
-  onProjectClick,
-  radius,
-  angleStep,
-  numSlots,
-  scrollRef,
-  targetRef,
-  lastReportedRef,
-  onActiveIndexChange,
-  scrollSpeed,
-  scrollEasing,
-  frontTurnNear,
-  frontTurnFar,
-}: CarouselGroupProps) {
-  const { camera } = useThree();
-  const groupRef = useRef<THREE.Group>(null);
-  const cardRefs = useRef<(THREE.Mesh | THREE.Group | null)[]>([]);
-  const [roundedScroll, setRoundedScroll] = useState(0);
-  const lastRoundedRef = useRef(0);
-
-  useFrame((_, delta) => {
-    const target = targetRef.current;
-    const current = scrollRef.current;
-    const diff = target - current;
-    const lerpFactor =
-      scrollEasing === "easeOut"
-        ? 1 - Math.exp(-scrollSpeed * delta)
-        : Math.min(1, scrollSpeed * delta);
-    const next = current + diff * lerpFactor;
-    scrollRef.current = next;
-
-    const group = groupRef.current;
-    if (group) {
-      group.rotation.y = -next * angleStep;
-
-      // Orient each card: tangent to the circle, but blend to face camera when in front (front or back by whichever is closest)
-      for (let p = 0; p < numSlots; p++) {
-        const card = cardRefs.current[p];
-        if (!card) continue;
-        const angle = p * angleStep;
-        const x = radius * Math.sin(angle);
-        const z = radius * Math.cos(angle);
-        _lookAtTarget.set(x + Math.cos(angle), 0, z - Math.sin(angle));
-        group.localToWorld(_lookAtTarget);
-        // Tangent target in world (card will look at this when tangent)
-        const tangentTargetX = _lookAtTarget.x;
-        const tangentTargetY = _lookAtTarget.y;
-        const tangentTargetZ = _lookAtTarget.z;
-        // Always face the camera with the front of the card when in front (no flip to back)
-        _cameraTarget.copy(camera.position);
-        const isContentSlot =
-          p < projects.length || (isAdmin && p === projects.length);
-        let dist = p - next;
-        while (dist > numSlots / 2) dist -= numSlots;
-        while (dist < -numSlots / 2) dist += numSlots;
-        const blend = isContentSlot
-          ? 1 - smoothstep(frontTurnNear, frontTurnFar, Math.abs(dist))
-          : 0;
-        _lookAtTarget.set(tangentTargetX, tangentTargetY, tangentTargetZ);
-        _lookAtTarget.lerp(_cameraTarget, blend);
-        card.lookAt(_lookAtTarget);
-      }
-    }
-
-    const rounded = Math.round(next);
-    if (rounded !== lastRoundedRef.current) {
-      lastRoundedRef.current = rounded;
-      setRoundedScroll(rounded);
-    }
-
-    const wrapped = ((rounded % numSlots) + numSlots) % numSlots;
-    if (wrapped !== lastReportedRef.current) {
-      lastReportedRef.current = wrapped;
-      onActiveIndexChange(wrapped);
-    }
-  });
-
-  return (
-    <group ref={groupRef}>
-      {Array.from({ length: numSlots }, (_, p) => {
-        const pos = circlePosition(p, radius, angleStep);
-
-        const setRef = (el: THREE.Mesh | THREE.Group | null) => {
-          cardRefs.current[p] = el;
-        };
-
-        if (p < projects.length) {
-          const project = projects[p];
-          const coverUrl = project["Cover Image"];
-          return coverUrl ? (
-            <CardErrorBoundary
-              key={`slot-${p}`}
-              fallback={<PlaceholderCard ref={setRef} position={pos} />}
-            >
-              <ProjectCard
-                ref={setRef}
-                coverUrl={coverUrl}
-                position={pos}
-                onClick={() => onProjectClick(p)}
-              />
-            </CardErrorBoundary>
-          ) : (
-            <PlaceholderCard key={`slot-${p}`} ref={setRef} position={pos} />
-          );
-        }
-        if (isAdmin && p === projects.length) {
-          return (
-            <AddCard
-              key={`slot-${p}`}
-              ref={setRef}
-              position={pos}
-              onClick={onAddClick}
-            />
-          );
-        }
-        return (
-          <PlaceholderCard key={`slot-${p}`} ref={setRef} position={pos} />
-        );
-      })}
-    </group>
-  );
-}

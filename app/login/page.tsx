@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * LoginPage renders a basic email/password form backed by Firebase Auth via useAuth.
+ * On successful login it redirects admins to the home page.
+ */
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../components/auth/AuthContext";

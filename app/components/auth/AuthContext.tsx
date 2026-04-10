@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * AuthContext provides Firebase Auth state (user, isAdmin, loading) and sign-in/out helpers.
+ * Use AuthProvider at the root of the app and the useAuth hook inside client components.
+ * Used by pages that need admin capabilities (home, login, project pages).
+ */
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   User,

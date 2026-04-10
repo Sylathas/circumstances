@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * ProjectInfoSection renders the client, title, and description fields for a project.
+ * It supports read-only display and admin editing via controlled callbacks.
+ * Used within ProjectPageClient near the top of the project detail page.
+ */
+
 import { useEffect, useRef } from "react";
 
 type ProjectInfoSectionProps = {
@@ -10,6 +16,7 @@ type ProjectInfoSectionProps = {
   onClientChange: (value: string) => void;
   onTitleChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
+  isMobile: boolean;
 };
 
 export default function ProjectInfoSection({
@@ -20,6 +27,7 @@ export default function ProjectInfoSection({
   onClientChange,
   onTitleChange,
   onDescriptionChange,
+  isMobile,
 }: ProjectInfoSectionProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -63,7 +71,7 @@ export default function ProjectInfoSection({
         )}
       </div>
       <div
-        className="text-[#171717] text-xs whitespace-pre-wrap w-1/2"
+        className={`text-[#171717] text-xs whitespace-pre-wrap ${isMobile ? "w-5/6" : "w-1/2"}`}
         style={{ fontWeight: 300 }}
       >
         {isAdmin ? (

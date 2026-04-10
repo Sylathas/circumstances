@@ -1,0 +1,76 @@
+"use client";
+
+/**
+ * VideoBacklight places an emissive plane behind the keychain that samples the background video texture.
+ * This simulates the video screen casting colored light onto the model — the same approach as a
+ * Blender emission plane — without the expensive per-frame PMREM generation of LiveVideoEnvironment.
+ * Used inside IntroScene in place of LiveVideoEnvironment.
+ */
+
+import { useMemo, useRef, useState, useEffect } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import * as THREE from "three";
+import type { RefObject } from "react";
+import { useDeviceTier } from "@/app/context/DeviceTierContext";
+
+type VideoBacklightProps = {
+  videoRef: RefObject<HTMLVideoElement | null>;
+  /** Emissive intensity of the backlight plane. Tunable via leva in dev. */
+  emissiveIntensity?: number;
+};
+
+export function VideoBacklight({ videoRef, emissiveIntensity = 0.35 }: VideoBacklightProps) {
+  const { tier, fxMatrix } = useDeviceTier();
+  const [videoReady, setVideoReady] = useState(false);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const { camera } = useThree();
+  const zPos = -42;
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const onData = () => setVideoReady(true);
+    el.addEventListener("loadeddata", onData);
+    if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) setVideoReady(true);
+    return () => el.removeEventListener("loadeddata", onData);
+  }, [videoRef]);
+
+  const texture = useMemo(() => {
+    if (!videoReady || !videoRef.current) return null;
+    const t = new THREE.VideoTexture(videoRef.current);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.minFilter = THREE.LinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = false;
+    return t;
+  }, [videoReady, videoRef]);
+
+  // Mark texture for update each frame so it stays in sync with the video
+  useFrame(() => {
+    if (texture) texture.needsUpdate = true;
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    if (!(camera instanceof THREE.PerspectiveCamera)) return;
+    const distance = Math.max(0.001, camera.position.z - zPos);
+    const vFov = THREE.MathUtils.degToRad(camera.fov);
+    const height = 2 * Math.tan(vFov / 2) * distance;
+    const width = height * camera.aspect;
+    mesh.scale.set(width, height, 1);
+  });
+
+  if (!fxMatrix[tier].videoBacklight || !texture) return null;
+
+  return (
+    <mesh ref={meshRef} position={[0, 0, zPos]}>
+      <planeGeometry />
+      <meshStandardMaterial
+        ref={materialRef}
+        emissiveMap={texture}
+        emissive={new THREE.Color(1, 1, 1)}
+        emissiveIntensity={emissiveIntensity}
+        toneMapped
+      />
+    </mesh>
+  );
+}

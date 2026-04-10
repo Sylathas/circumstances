@@ -1,6 +1,13 @@
 "use client";
 
+/**
+ * ProjectPageClient is the client-side project detail page that reads and writes Firestore.
+ * It loads a single project by id, exposes inline admin editing, media uploads, and credits, and renders sub-sections.
+ * Used as the default export for /project/[id] via the route's server wrapper.
+ */
+
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -12,8 +19,8 @@ import {
 } from "firebase/firestore";
 import { db } from "@/app/components/firebase/firebaseConfig";
 import { useAuth } from "@/app/components/auth/AuthContext";
-import Header, { type SaveState } from "@/app/components/Header";
-import PageTransition from "@/app/components/PageTransition";
+import { Header, type SaveState } from "@/app/components/Header";
+import { PageTransition } from "@/app/components/PageTransition";
 import { uploadFile } from "@/app/utils/storage";
 import type { Project } from "@/app/types/project";
 import {
@@ -45,7 +52,7 @@ export default function ProjectPageClient() {
   const [allProjectIds, setAllProjectIds] = useState<string[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  const isMobile = useIsMobile();
   const FETCH_TIMEOUT_MS = 12000;
 
   const fetchProject = useCallback(async () => {
@@ -205,8 +212,8 @@ export default function ProjectPageClient() {
         <p className="text-sm font-normal text-[#171717]">
           {fetchError ?? "Project not found."}
         </p>
-        <Link href="/" className="text-sm font-normal text-[#171717] underline">
-          Back to home
+        <Link href="/projects" className="text-sm font-normal text-[#171717] underline">
+          Back to projects
         </Link>
       </div>
     );
@@ -217,10 +224,11 @@ export default function ProjectPageClient() {
       <div className="bg-white pt-[var(--header-height)]">
         <Header
           activeFilters={new Set()}
-          onFilterToggle={() => {}}
-          backHref="/"
+          onFilterToggle={() => { }}
+          backHref="/projects"
           onSave={isAdmin ? handleSave : undefined}
           saveState={saveState}
+          showCategoryFilters={false}
         />
         <main className="w-full h-full bg-white pt-50 pb-2">
           <ProjectInfoSection
@@ -231,6 +239,7 @@ export default function ProjectPageClient() {
             onClientChange={setClient}
             onTitleChange={setProjectTitle}
             onDescriptionChange={setProjectDescription}
+            isMobile={isMobile}
           />
           <MediaGallery
             mediaItems={mediaItems}
@@ -238,6 +247,7 @@ export default function ProjectPageClient() {
             projectId={id}
             onReorder={handleMediaReorder}
             onAddMedia={handleAddMedia}
+            isMobile={isMobile}
           />
           <CreditsSection
             creditNames={creditNames}
@@ -245,6 +255,7 @@ export default function ProjectPageClient() {
             onAdd={addCredit}
             onRemove={removeCredit}
             onUpdate={updateCredit}
+            isMobile={isMobile}
           />
           <ProjectPageFooter nextProjectId={nextId} />
         </main>

@@ -1,6 +1,13 @@
 "use client";
 
+/**
+ * PageTransition wraps content in a framer-motion animated div to add simple entry/exit transitions.
+ * It accepts children, an optional transition type, and an optional className for styling.
+ * Used by project, studio, and diary pages for soft route transitions.
+ */
+
 import { motion, type Variants } from "framer-motion";
+import { useMemo } from "react";
 
 export type TransitionType = "fade" | "slide" | "slideUp" | "morph";
 
@@ -29,17 +36,28 @@ const transitionVariants: Record<TransitionType, Variants> = {
 
 const defaultTransition = { duration: 0.25, ease: "easeInOut" };
 
-type PageTransitionProps = {
+export type PageTransitionProps = {
   children: React.ReactNode;
   type?: TransitionType;
   className?: string;
 };
 
-export default function PageTransition({
+export function PageTransition({
   children,
   type = "fade",
   className,
 }: PageTransitionProps) {
+  const skipMotionOnce = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const shouldSkip = sessionStorage.getItem("route-shape-nav") === "1";
+    if (shouldSkip) sessionStorage.removeItem("route-shape-nav");
+    return shouldSkip;
+  }, []);
+
+  if (skipMotionOnce) {
+    return <div className={className}>{children}</div>;
+  }
+
   const variants = transitionVariants[type];
 
   return (

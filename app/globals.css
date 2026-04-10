@@ -4,6 +4,9 @@
   --background: #ffffff;
   --foreground: #ffffff;
   --header-height: 65px;
+  --route-shape-duration: 2000ms;
+  --route-shape-ease: cubic-bezier(0.628, 0.005, 0.2, 1);
+  --route-shape-start-inset: 50% 50% 50% 50%;
 }
 
 @theme inline {
@@ -35,7 +38,7 @@ body {
 /*specifics*/
 
 #myVideo {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
@@ -45,4 +48,86 @@ body {
 
 .deleteButton {
   color: #FF0000;
+}
+
+/* Route transition: center-growing square reveal */
+@supports (view-transition-name: root) {
+  :root.route-shape-vt::view-transition-group(root) {
+    animation: none;
+  }
+
+  :root.route-shape-vt::view-transition-old(root) {
+    animation: none;
+  }
+
+  :root.route-shape-vt::view-transition-new(root) {
+    clip-path: inset(0);
+    transform-origin: center;
+    -webkit-mask-image: url("/Keyhole.svg");
+    mask-image: url("/Keyhole.svg");
+    -webkit-mask-mode: alpha;
+    mask-mode: alpha;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: 0vmax auto;
+    mask-size: 0vmax auto;
+    will-change: -webkit-mask-size, mask-size;
+    animation: route-keyhole-reveal var(--route-shape-duration) var(--route-shape-ease) both;
+  }
+}
+
+@keyframes route-keyhole-reveal {
+  from {
+    -webkit-mask-size: 0vmax auto;
+    mask-size: 0vmax auto;
+  }
+
+  to {
+    -webkit-mask-size: 350vmax auto;
+    mask-size: 350vmax auto;
+  }
+}
+
+/* Route transition reverse: current page shrinks back through the keyhole when returning home */
+@supports (view-transition-name: root) {
+  :root.route-shape-vt-reverse::view-transition-group(root) {
+    animation: none;
+  }
+
+  :root.route-shape-vt-reverse::view-transition-old(root) {
+    z-index: 2;
+    clip-path: inset(0);
+    transform-origin: center;
+    -webkit-mask-image: url("/Keyhole.svg");
+    mask-image: url("/Keyhole.svg");
+    -webkit-mask-mode: alpha;
+    mask-mode: alpha;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: 350vmax auto;
+    mask-size: 350vmax auto;
+    will-change: -webkit-mask-size, mask-size;
+    animation: route-keyhole-close var(--route-shape-duration) var(--route-shape-ease) both;
+  }
+
+  :root.route-shape-vt-reverse::view-transition-new(root) {
+    z-index: 1;
+    animation: none;
+  }
+}
+
+@keyframes route-keyhole-close {
+  from {
+    -webkit-mask-size: 350vmax auto;
+    mask-size: 350vmax auto;
+  }
+
+  to {
+    -webkit-mask-size: 0vmax auto;
+    mask-size: 0vmax auto;
+  }
 }

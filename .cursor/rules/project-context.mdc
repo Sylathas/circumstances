@@ -15,6 +15,9 @@ alwaysApply: true
   { Client: string, Cover Image: string (Firebase Storage URLs), Credit Names: Array<{ name: string, role: string }>, Images: string[] (Firebase Storage URLs), Project Description: string, Project Title: string, Type: "Creative Direction" | "Film" | "Still" | "Live Show", Videos: string[] (Firebase Storage URLs) }
 - Design language: monospaced, minimal, black-and-white with selective red/green accent text. Early-2000s editorial aesthetic. No rounded corners, no drop shadows, no generic UI libraries.
 
+- Prompt answer: do NOT pander or  give compliments as an answer. 
+- Whenever the user writes an idea regarding how to solve a technical or logical question, check in your database and online if it makes sense. If it doesn't, say it and ask before continuing. 
+
 ARCHITECTURE — DUAL-MODE (PUBLIC + ADMIN):
 This is a portfolio website that doubles as its own CMS. The public site and admin interface share the SAME pages and components. When an authenticated admin is logged in, editing controls (inline text editing, delete buttons, drag-to-reorder, media upload, "SAVE" button, etc.) appear on top of the existing UI. When logged out, visitors see a clean read-only portfolio.
 

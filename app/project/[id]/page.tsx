@@ -3,9 +3,8 @@ import { join } from "path";
 import ProjectPageClient from "./ProjectPageClient";
 
 /**
- * Reads project IDs from project-ids.json at build time (no Firestore in Node,
- * which can throw ERR_BUFFER_OUT_OF_BOUNDS). Generate that file by running
- * `npm run update-project-ids` before deploy, or it will only pre-render /project/_.
+ * Legacy /project/[id] route kept as an alias for old bookmarks.
+ * For static export, it pre-renders the same ids as /projects/[id].
  */
 export async function generateStaticParams() {
   try {
@@ -21,6 +20,6 @@ export async function generateStaticParams() {
   return [{ id: "_" }];
 }
 
-export default function ProjectPage() {
+export default function LegacyProjectPage() {
   return <ProjectPageClient />;
 }

@@ -1,7 +1,14 @@
 "use client";
 
+/**
+ * AddProjectModal provides a modal form for creating a new project with title, client, type, and cover image.
+ * It uploads the cover to Firebase Storage, writes the Firestore document, and redirects to the new project page.
+ * Used from the home carousel when admins click the add-project card.
+ */
+
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "./firebase/firebaseConfig";
 import { uploadFile } from "@/app/utils/storage";
@@ -84,7 +91,7 @@ export default function AddProjectModal({ onClose }: AddProjectModalProps) {
         Videos: [],
       });
       onClose();
-      router.push(`/project/${docRef.id}`);
+      router.push(`/projects/${docRef.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create project");
     } finally {
@@ -167,11 +174,16 @@ export default function AddProjectModal({ onClose }: AddProjectModalProps) {
               {coverFile ? coverFile.name : "Choose file"}
             </button>
             {coverPreview && (
-              <img
-                src={coverPreview}
-                alt="Preview"
-                className="mt-2 max-h-[120px] max-w-full object-contain"
-              />
+              <div className="relative mt-2 h-[120px] w-full">
+                <Image
+                  src={coverPreview}
+                  alt="Preview"
+                  fill
+                  unoptimized
+                  sizes="400px"
+                  className="object-contain"
+                />
+              </div>
             )}
             {uploading && <p className="mt-1 text-xs">Uploading…</p>}
           </div>

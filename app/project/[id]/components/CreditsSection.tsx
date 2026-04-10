@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * CreditsSection displays and optionally allows editing of project credit name/role pairs.
+ * It accepts the credit list, admin flag, and callbacks for add, remove, and update actions.
+ * Used at the bottom of ProjectPageClient above the footer.
+ */
+
 type CreditRow = { name: string; role: string };
 
 type CreditsSectionProps = {
@@ -8,6 +14,7 @@ type CreditsSectionProps = {
   onAdd: () => void;
   onRemove: (index: number) => void;
   onUpdate: (index: number, field: "name" | "role", value: string) => void;
+  isMobile: boolean;
 };
 
 export default function CreditsSection({
@@ -16,6 +23,7 @@ export default function CreditsSection({
   onAdd,
   onRemove,
   onUpdate,
+  isMobile,
 }: CreditsSectionProps) {
   return (
     <section className="mb-40 px-2">
@@ -25,11 +33,11 @@ export default function CreditsSection({
       >
         CREDITS
       </h2>
-      <div className="space-y-3 text-[#171717] w-1/4">
+      <div className={`space-y-3 text-[#171717] ${isMobile ? "w-1/2" : "w-1/5"}`}>
         {creditNames.map((credit, index) => (
           <div
             key={index}
-            className="grid grid-cols-2 gap-2 items-center group mb-[-7px]"
+            className="grid grid-cols-2 gap-2 items-center group mb-[-3px]"
           >
             {isAdmin ? (
               <>

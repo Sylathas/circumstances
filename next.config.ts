@@ -15,6 +15,14 @@ const nextConfig: NextConfig = {
   ...(isExportBuild ? { output: "export" as const } : {}),
   basePath: basePath || undefined,
   assetPrefix,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "firebasestorage.googleapis.com",
+      },
+    ],
+  },
 };
 
 export default nextConfig;
