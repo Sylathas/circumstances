@@ -1,11 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SceneWrapper from "@/app/components/three/SceneWrapper";
 import { useSongStable } from "@/app/components/songs/SongProvider";
 import SongBar from "@/app/components/songs/SongBar";
 import { useLoading } from "@/app/context/LoadingContext";
-import { useIsMobile } from "@/app/hooks/useIsMobile";
 
 export type HomeExperienceMode = "intro" | "menu-only";
 
@@ -17,13 +16,33 @@ export type HomeExperienceProps = {
 export function HomeExperience({ mode }: HomeExperienceProps) {
   const { startPlayback } = useSongStable();
   const { markSceneReady, markVideoReady, markIntroReady } = useLoading();
-  const isMobile = useIsMobile();
-  const videoSrc = isMobile ? "/textures/BG-fx_mobile.mp4" : "/textures/BG-fx.mp4";
+  const [videoSrc, setVideoSrc] = useState<string | undefined>(undefined);
   const [menuVisible, setMenuVisible] = useState(mode === "menu-only");
   const [sceneReady, setSceneReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const videoVisible = true;
+  useEffect(() => {
+    const updateVideoSrc = () => {
+      const mobile = window.innerWidth < 768;
+      setVideoSrc(mobile ? "/textures/BG-fx_mobile.mp4" : "/textures/BG-fx.mp4");
+    };
+    updateVideoSrc();
+    window.addEventListener("resize", updateVideoSrc);
+    return () => window.removeEventListener("resize", updateVideoSrc);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const el = videoRef.current;
+      if (!el) return;
+      // Release decode buffers when leaving home to reduce iOS WebKit crash risk.
+      el.pause();
+      el.removeAttribute("src");
+      el.load();
+    };
+  }, []);
+
+  const videoVisible = Boolean(videoSrc);
   const showHeader = mode === "menu-only" || menuVisible;
   const sceneLayerClass =
     mode === "intro" && !menuVisible ? "z-[51]" : "z-10";

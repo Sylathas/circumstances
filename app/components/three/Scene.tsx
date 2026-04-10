@@ -132,6 +132,7 @@ function SuspenseReady({ onReady }: { onReady?: () => void }) {
 }
 
 export default function IntroScene({ mode, onIntroComplete, onKeyholeInserted, onSceneReady, onIntroReady, videoRef }: IntroSceneProps) {
+    const { tier, fxMatrix } = useDeviceTier()
     const startInKeychain = mode === "menu-only"
     const [revealKeychain, setRevealKeychain] = useState(startInKeychain)
     const [doorOpened, setDoorOpened] = useState(startInKeychain)
@@ -150,6 +151,7 @@ export default function IntroScene({ mode, onIntroComplete, onKeyholeInserted, o
                     fov: ANIMATION_CONFIG.introScene.cameraFov,
                     position: [0, 0, introZ],
                 }}
+                dpr={[1, fxMatrix[tier].maxDpr]}
                 gl={{ alpha: true }}
                 onCreated={({ gl }) => {
                     gl.setClearColor(0x000000, 0)
