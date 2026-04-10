@@ -25,6 +25,15 @@ function parseCssDurationMs(raw: string | null | undefined, fallbackMs: number) 
   return Number.isFinite(n) ? n : fallbackMs;
 }
 
+function shouldUseSimpleFadeNavigation(): boolean {
+  if (typeof window === "undefined") return false;
+  const prefersCoarsePointer =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches;
+  const narrowViewport = window.innerWidth <= 900;
+  return prefersCoarsePointer || narrowViewport;
+}
+
 function shouldDisableShapeViewTransition(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
@@ -83,6 +92,15 @@ export default function RouteShapeTransitionManager() {
 
       ev.preventDefault();
       isTransitioningRef.current = true;
+
+      // Mobile: keep transitions lightweight and rely on route/page fades.
+      if (shouldUseSimpleFadeNavigation()) {
+        sessionStorage.setItem("route-shape-nav", "1");
+        router.push(route);
+        isTransitioningRef.current = false;
+        fallbackModeRef.current = false;
+        return;
+      }
 
       const doc = document as Document & {
         startViewTransition?: (

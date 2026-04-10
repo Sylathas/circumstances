@@ -16,6 +16,15 @@ import { useIsMobile } from "@/app/hooks/useIsMobile";
 
 const HOME_ROUTES = new Set(["/", "/home", "/circumstances", "/circumstances/"]);
 
+function shouldUseSimpleFadeNavigation(): boolean {
+  if (typeof window === "undefined") return false;
+  const prefersCoarsePointer =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches;
+  const narrowViewport = window.innerWidth <= 900;
+  return prefersCoarsePointer || narrowViewport;
+}
+
 function shouldDisableShapeViewTransition(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
@@ -39,6 +48,11 @@ function useHomeTransition() {
     const doc = document as Document & {
       startViewTransition?: (cb: () => void) => { finished: Promise<void> };
     };
+    if (shouldUseSimpleFadeNavigation()) {
+      sessionStorage.setItem("route-shape-nav", "1");
+      router.push("/home");
+      return;
+    }
     const triggerOverlayFallback = () => {
       const notCancelled = window.dispatchEvent(
         new CustomEvent("keychain:route-transition", {

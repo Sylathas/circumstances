@@ -103,14 +103,10 @@ export function useRoughnessFromMRMap(
 ): THREE.Texture | null {
   const key = getMRCacheKey(url, repeatWidth, repeatHeight);
   const [tex, setTex] = useState<THREE.Texture | null>(
-    () => (enabled && mrTextureCache[key]) ? mrTextureCache[key] : null
+    () => (mrTextureCache[key]) ? mrTextureCache[key] : null
   );
 
   useEffect(() => {
-    if (!enabled) {
-      setTex(null);
-      return;
-    }
     if (mrTextureCache[key]) {
       setTex(mrTextureCache[key]);
       return;
@@ -125,7 +121,7 @@ export function useRoughnessFromMRMap(
     return () => {
       cancelled = true;
     };
-  }, [url, key, repeatWidth, repeatHeight, enabled]);
+  }, [url, key, repeatWidth, repeatHeight]);
 
   return tex;
 }
