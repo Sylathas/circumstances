@@ -64,7 +64,7 @@ export const ANIMATION_CONFIG = {
     maxWaitMs: 3500, // hard cap while waiting for destination ready signal
     homeMaxWaitMs: 12000, // home can take longer due intro/canvas initialization
     holdOpacity: 1, // overlay opacity while waiting at step 2
-    holdBackgroundAlpha: 1, // keep tint subtle to avoid a white flash feel
+    holdBackgroundAlpha: 0.35, // keep tint subtle to avoid a white flash feel
   },
   gallery: {
     dragThreshold: 5, // px before a drag is recognized; 3–15 (for future use)

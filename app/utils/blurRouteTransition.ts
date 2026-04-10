@@ -176,12 +176,13 @@ async function navigateWithLoadingAwareBlur({
   if (transitionInProgress) return;
   transitionInProgress = true;
 
-  const {
-    phaseInMs,
-    phaseOutMs,
-    phaseOutFastMs,
-    pushDelayMs,
-  } = ANIMATION_CONFIG.routeBlurTransition;
+  const cfg = ANIMATION_CONFIG.routeBlurTransition;
+  const phaseInMs = mobile ? Math.max(140, Math.round(cfg.phaseInMs * 0.5)) : cfg.phaseInMs;
+  const phaseOutMs = mobile ? Math.max(180, Math.round(cfg.phaseOutMs * 0.6)) : cfg.phaseOutMs;
+  const phaseOutFastMs = mobile
+    ? Math.max(140, Math.round(cfg.phaseOutFastMs * 0.5))
+    : cfg.phaseOutFastMs;
+  const pushDelayMs = mobile ? Math.min(cfg.pushDelayMs, 70) : cfg.pushDelayMs;
   const overlay = createHoldBlurOverlay(mobile);
   let readyResolved = false;
 
@@ -258,9 +259,14 @@ export function navigateWithBlurTransition({
     router,
     toPath,
     mobile: isMobile,
-    waitForReady: () =>
-      isHomePath(toPath)
-        ? waitForHomeSceneReady(ANIMATION_CONFIG.routeBlurTransition.homeMaxWaitMs)
-        : waitForRouteReady(toPath, ANIMATION_CONFIG.routeBlurTransition.maxWaitMs),
+    waitForReady: () => {
+      if (isHomePath(toPath)) {
+        return waitForHomeSceneReady(ANIMATION_CONFIG.routeBlurTransition.homeMaxWaitMs);
+      }
+      const routeMaxWaitMs = isMobile
+        ? Math.min(ANIMATION_CONFIG.routeBlurTransition.maxWaitMs, 1600)
+        : ANIMATION_CONFIG.routeBlurTransition.maxWaitMs;
+      return waitForRouteReady(toPath, routeMaxWaitMs);
+    },
   });
 }

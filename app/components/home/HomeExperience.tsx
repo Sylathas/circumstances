@@ -22,13 +22,8 @@ export function HomeExperience({ mode }: HomeExperienceProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    const updateVideoSrc = () => {
-      const mobile = window.innerWidth < 768;
-      setVideoSrc(mobile ? "/textures/BG-fx_mobile.mp4" : "/textures/BG-fx.mp4");
-    };
-    updateVideoSrc();
-    window.addEventListener("resize", updateVideoSrc);
-    return () => window.removeEventListener("resize", updateVideoSrc);
+    const mobile = window.innerWidth < 768;
+    setVideoSrc(mobile ? "/textures/BG-fx_mobile.mp4" : "/textures/BG-fx.mp4");
   }, []);
 
   useEffect(() => {
@@ -43,6 +38,7 @@ export function HomeExperience({ mode }: HomeExperienceProps) {
   }, []);
 
   const videoVisible = Boolean(videoSrc);
+  const isMobileVideo = videoSrc === "/textures/BG-fx_mobile.mp4";
   const showHeader = mode === "menu-only" || menuVisible;
   const sceneLayerClass =
     mode === "intro" && !menuVisible ? "z-[51]" : "z-10";
@@ -65,7 +61,7 @@ export function HomeExperience({ mode }: HomeExperienceProps) {
           muted
           loop
           playsInline
-          preload="auto"
+          preload={isMobileVideo ? "metadata" : "auto"}
           id="myVideo"
           onCanPlay={markVideoReady}
           onLoadedData={markVideoReady}

@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   doc,
@@ -22,6 +22,7 @@ import { useAuth } from "@/app/components/auth/AuthContext";
 import { Header, type SaveState } from "@/app/components/Header";
 import { PageTransition } from "@/app/components/PageTransition";
 import { uploadFile } from "@/app/utils/storage";
+import { emitRouteReady } from "@/app/utils/routeReady";
 import type { Project } from "@/app/types/project";
 import {
   asCreditNamesArray,
@@ -35,6 +36,7 @@ import ProjectPageFooter from "./components/ProjectPageFooter";
 
 export default function ProjectPageClient() {
   const params = useParams();
+  const pathname = usePathname();
   const id = typeof params.id === "string" ? params.id : "";
   const { isAdmin } = useAuth();
 
@@ -96,6 +98,11 @@ export default function ProjectPageClient() {
   useEffect(() => {
     fetchProject();
   }, [fetchProject]);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => emitRouteReady(pathname ?? `/projects/${id}`));
+    return () => cancelAnimationFrame(raf);
+  }, [pathname, id]);
 
   useEffect(() => {
     if (!id) return;

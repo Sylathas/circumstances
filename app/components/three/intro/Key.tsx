@@ -125,7 +125,7 @@ export default function Key({ phase, setPhase, setCapturedTransform, whiteMateri
                 }
                 const arrived = meshRef.current.position.distanceTo(MOBILE_APPROACH_POSITION.current) < 0.2
                 if (!arrived) {
-                    meshRef.current.position.lerp(MOBILE_APPROACH_POSITION.current, 0.05)
+                    meshRef.current.position.lerp(MOBILE_APPROACH_POSITION.current, 0.1)
                     meshRef.current.lookAt(KEYHOLE_POSITION.current)
                     meshRef.current.rotateX(Math.PI / 2)
                     meshRef.current.rotateY(Math.PI / 2)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import Image from "next/image";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 
@@ -10,9 +10,11 @@ import { useAuth } from "@/app/components/auth/AuthContext";
 import { Header, type SaveState } from "@/app/components/Header";
 import { PageTransition } from "@/app/components/PageTransition";
 import type { DiaryEntry } from "@/app/types/project";
+import { emitRouteReady } from "@/app/utils/routeReady";
 
 export default function DiaryEntryPageClient() {
   const params = useParams();
+  const pathname = usePathname();
   const id = typeof params.id === "string" ? params.id : "";
   const { isAdmin } = useAuth();
 
@@ -52,6 +54,11 @@ export default function DiaryEntryPageClient() {
   useEffect(() => {
     fetchEntry();
   }, [fetchEntry]);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => emitRouteReady(pathname ?? `/diary/${id}`));
+    return () => cancelAnimationFrame(raf);
+  }, [pathname, id]);
 
   const handleSave = useCallback(async () => {
     if (!entry) return;
