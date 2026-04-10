@@ -11,6 +11,7 @@ import { Header, type SaveState } from "@/app/components/Header";
 import { PageTransition } from "@/app/components/PageTransition";
 import type { DiaryEntry } from "@/app/types/project";
 import { emitRouteReady } from "@/app/utils/routeReady";
+import { uploadFile } from "@/app/utils/storage";
 
 export default function DiaryEntryPageClient() {
   const params = useParams();
@@ -19,6 +20,9 @@ export default function DiaryEntryPageClient() {
   const { isAdmin } = useAuth();
 
   const [entry, setEntry] = useState<DiaryEntry | null>(null);
+  const [cover, setCover] = useState("");
+  const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
+  const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -42,7 +46,10 @@ export default function DiaryEntryPageClient() {
         description: data.description ?? "",
       };
       setEntry(loaded);
+      setCover(loaded.cover);
       setDescription(loaded.description);
+      setPendingCoverFile(null);
+      setPendingCoverPreview(null);
     } catch (err) {
       console.error(err);
       setNotFound(true);
@@ -64,16 +71,48 @@ export default function DiaryEntryPageClient() {
     if (!entry) return;
     setSaveState("loading");
     try {
+      let nextCover = cover;
+      if (pendingCoverFile) {
+        const path = `diary/${entry.id}_${Date.now()}_${pendingCoverFile.name}`;
+        nextCover = await uploadFile(pendingCoverFile, path);
+      }
       await updateDoc(doc(db, "diary", entry.id), {
+        cover: nextCover,
         description,
       });
+      setCover(nextCover);
+      setPendingCoverFile(null);
+      setPendingCoverPreview(null);
       setSaveState("success");
       setTimeout(() => setSaveState("idle"), 1500);
     } catch (err) {
       console.error(err);
       setSaveState("idle");
     }
-  }, [entry, description]);
+  }, [entry, cover, description, pendingCoverFile]);
+
+  const handleCoverChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0] ?? null;
+      if (!file) return;
+      if (pendingCoverPreview) {
+        URL.revokeObjectURL(pendingCoverPreview);
+      }
+      const objectUrl = URL.createObjectURL(file);
+      setPendingCoverFile(file);
+      setPendingCoverPreview(objectUrl);
+      e.currentTarget.value = "";
+    },
+    [pendingCoverPreview]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (pendingCoverPreview) {
+        URL.revokeObjectURL(pendingCoverPreview);
+      }
+    };
+  }, [pendingCoverPreview]);
 
   if (loading) {
     return (
@@ -107,15 +146,33 @@ export default function DiaryEntryPageClient() {
         <main className="w-full h-full bg-white pt-50 pb-10">
           <section className="relative bottom-4 w-full mx-auto px-4">
             <div className="mb-8 w-full">
-              {entry.cover && (
+              {(pendingCoverPreview || cover) && (
                 <div className="relative w-full max-w-xl max-h-[400px] aspect-[1/1] overflow-hidden">
                   <Image
-                    src={entry.cover}
+                    src={pendingCoverPreview ?? cover}
                     alt=""
                     fill
                     sizes="(max-width: 768px) 100vw, 576px"
                     className="object-contain object-left"
                   />
+                </div>
+              )}
+              {isAdmin && (
+                <div className="mt-3 flex items-center gap-3">
+                  <label className="cursor-pointer border border-[#171717] px-3 py-2 text-xs text-[#171717]">
+                    CHANGE COVER
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleCoverChange}
+                    />
+                  </label>
+                  {pendingCoverFile && (
+                    <span className="text-[11px] text-[#171717]">
+                      Pending: {pendingCoverFile.name}
+                    </span>
+                  )}
                 </div>
               )}
             </div>

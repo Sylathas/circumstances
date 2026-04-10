@@ -48,7 +48,10 @@ export function DeviceTierProvider({ children }: { children: React.ReactNode }) 
     const nav = navigator as Navigator & { deviceMemory?: number };
     const memory = nav.deviceMemory ?? 4; // GB; undefined means we assume capable
     const cores = navigator.hardwareConcurrency ?? 4;
-    if (memory <= 2 || cores <= 2) {
+    // Be conservative: only force battery-saver when both signals indicate
+    // constrained hardware. This avoids false downgrades on desktop browsers
+    // that report a low value for just one metric.
+    if (memory <= 2 && cores <= 2) {
       setDetectedTier("battery-saver");
     }
   }, []);
