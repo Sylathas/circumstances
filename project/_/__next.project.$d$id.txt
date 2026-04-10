@@ -1,4 +1,4 @@
 1:"$Sreact.fragment"
 2:I[91586,["https://sylathas.github.io/circumstances/_next/static/chunks/8f96c2a6a4b390fe.js","https://sylathas.github.io/circumstances/_next/static/chunks/8c78c69a834eca9a.js"],"default"]
 3:I[23305,["https://sylathas.github.io/circumstances/_next/static/chunks/8f96c2a6a4b390fe.js","https://sylathas.github.io/circumstances/_next/static/chunks/8c78c69a834eca9a.js"],"default"]
-0:{"buildId":"1FPAys1ivqcsc-agSwNW5","rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"loading":null,"isPartial":false}
+0:{"buildId":"aIWbYB6FVyC3sbkbyD_A3","rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"loading":null,"isPartial":false}

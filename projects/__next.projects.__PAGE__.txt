@@ -1,0 +1,6 @@
+1:"$Sreact.fragment"
+2:I[12742,["https://sylathas.github.io/circumstances/_next/static/chunks/554b5062a8ea03d4.js","https://sylathas.github.io/circumstances/_next/static/chunks/a2f8e08c3498cfd9.js","https://sylathas.github.io/circumstances/_next/static/chunks/85b33d8b307d67f1.js","https://sylathas.github.io/circumstances/_next/static/chunks/cc672d6e76ab0489.js","https://sylathas.github.io/circumstances/_next/static/chunks/c95306abf36d84b9.js"],"default"]
+3:I[56342,["https://sylathas.github.io/circumstances/_next/static/chunks/8f96c2a6a4b390fe.js","https://sylathas.github.io/circumstances/_next/static/chunks/8c78c69a834eca9a.js"],"OutletBoundary"]
+4:"$Sreact.suspense"
+0:{"buildId":"aIWbYB6FVyC3sbkbyD_A3","rsc":["$","$1","c",{"children":[["$","$L2",null,{}],[["$","script","script-0",{"src":"https://sylathas.github.io/circumstances/_next/static/chunks/cc672d6e76ab0489.js","async":true}],["$","script","script-1",{"src":"https://sylathas.github.io/circumstances/_next/static/chunks/c95306abf36d84b9.js","async":true}]],["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"loading":null,"isPartial":false}
+5:null
