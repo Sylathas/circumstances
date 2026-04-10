@@ -16,6 +16,16 @@ import { useIsMobile } from "@/app/hooks/useIsMobile";
 
 const HOME_ROUTES = new Set(["/", "/home", "/circumstances", "/circumstances/"]);
 
+function shouldDisableShapeViewTransition(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  const isiOS =
+    /iP(hone|ad|od)/i.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isWebKit = /WebKit/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
+  return isiOS && isWebKit;
+}
+
 function useHomeTransition() {
   const router = useRouter();
   const pathname = usePathname();
@@ -29,7 +39,21 @@ function useHomeTransition() {
     const doc = document as Document & {
       startViewTransition?: (cb: () => void) => { finished: Promise<void> };
     };
-    if (typeof doc.startViewTransition === "function") {
+    const triggerOverlayFallback = () => {
+      const notCancelled = window.dispatchEvent(
+        new CustomEvent("keychain:route-transition", {
+          cancelable: true,
+          detail: { action: "Tag", route: "/home" },
+        })
+      );
+      if (notCancelled) {
+        router.push("/home");
+      }
+    };
+    if (
+      typeof doc.startViewTransition === "function" &&
+      !shouldDisableShapeViewTransition()
+    ) {
       document.documentElement.classList.add("route-shape-vt-reverse");
       try {
         const t = doc.startViewTransition(() => {
@@ -41,10 +65,10 @@ function useHomeTransition() {
         });
       } catch {
         document.documentElement.classList.remove("route-shape-vt-reverse");
-        router.push("/home");
+        triggerOverlayFallback();
       }
     } else {
-      router.push("/home");
+      triggerOverlayFallback();
     }
   };
 }

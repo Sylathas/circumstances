@@ -20,7 +20,7 @@ export type TierFxMatrix = {
 
 export const DEFAULT_TIER_FX: TierFxMatrix = {
   desktop: { postProcessing: true, bloom: true, videoBacklight: true, maxDpr: 2.0 },
-  tablet: { postProcessing: true, bloom: false, videoBacklight: false, maxDpr: 1.5 },
+  tablet: { postProcessing: true, bloom: true, videoBacklight: true, maxDpr: 1.5 },
   mobile: { postProcessing: false, bloom: false, videoBacklight: false, maxDpr: 1.25 },
   "battery-saver": { postProcessing: false, bloom: false, videoBacklight: false, maxDpr: 1.0 },
 };

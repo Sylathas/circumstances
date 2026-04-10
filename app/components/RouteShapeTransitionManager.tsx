@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { warmupProjectsCarousel } from "@/app/components/carousel/projectsWarmup";
 
 type RouteTransitionDetail = {
-  action: "Diary" | "Projects" | "Studio" | "Tag";
+  action?: "Diary" | "Projects" | "Studio" | "Tag";
   route: string;
 };
 
@@ -23,6 +23,16 @@ function parseCssDurationMs(raw: string | null | undefined, fallbackMs: number) 
   }
   const n = Number.parseFloat(value);
   return Number.isFinite(n) ? n : fallbackMs;
+}
+
+function shouldDisableShapeViewTransition(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  const isiOS =
+    /iP(hone|ad|od)/i.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isWebKit = /WebKit/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
+  return isiOS && isWebKit;
 }
 
 export default function RouteShapeTransitionManager() {
@@ -82,7 +92,10 @@ export default function RouteShapeTransitionManager() {
 
       // Preferred path: true old->new shared transition, where "new page"
       // is clipped from a small center square to fullscreen.
-      if (typeof doc.startViewTransition === "function") {
+      if (
+        typeof doc.startViewTransition === "function" &&
+        !shouldDisableShapeViewTransition()
+      ) {
         document.documentElement.classList.add("route-shape-vt");
         const transition = doc.startViewTransition(() => {
           sessionStorage.setItem("route-shape-nav", "1");
@@ -103,8 +116,11 @@ export default function RouteShapeTransitionManager() {
         700
       );
       const durationMs = Math.max(120, Math.min(4000, Math.round(cssDurationMs)));
-      fallbackDurationRef.current = durationMs;
-      setFallbackDurationMs(durationMs);
+      const safeDurationMs = shouldDisableShapeViewTransition()
+        ? Math.min(durationMs, 950)
+        : durationMs;
+      fallbackDurationRef.current = safeDurationMs;
+      setFallbackDurationMs(safeDurationMs);
 
       fallbackModeRef.current = true;
       setOverlayVisible(true);
@@ -143,10 +159,15 @@ export default function RouteShapeTransitionManager() {
   if (!overlayVisible) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[200] flex items-center justify-center">
+    <div
+      className={`pointer-events-none fixed inset-0 z-[200] flex items-center justify-center bg-black transition-opacity ease-[cubic-bezier(.22,.8,.2,1)] ${
+        overlayExpanded ? "opacity-100" : "opacity-0"
+      }`}
+      style={{ transitionDuration: `${fallbackDurationMs}ms` }}
+    >
       <div
-        className={`h-10 w-10 bg-black transition-transform duration-500 ease-[cubic-bezier(.22,.8,.2,1)] ${
-          overlayExpanded ? "scale-[80]" : "scale-0"
+        className={`h-12 w-6 bg-[url('/Keyhole.svg')] bg-contain bg-center bg-no-repeat transition-transform ease-[cubic-bezier(.22,.8,.2,1)] ${
+          overlayExpanded ? "scale-[120]" : "scale-0"
         }`}
         style={{ transitionDuration: `${fallbackDurationMs}ms` }}
       />

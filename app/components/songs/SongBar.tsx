@@ -77,7 +77,7 @@ export default function SongBar() {
       <div className={`flex min-w-0 items-center gap-3 ${isMobileTier ? "justify-left" : "justify-center"}`}>
         {/* Timeline */}
         <div
-          className={`relative flex-1 ${isMobileTier ? "min-w-[100px] max-w-[150px]" : "min-w-[200px] max-w-[200px]"
+          className={`relative flex-1 ${isMobileTier ? "min-w-[50px] max-w-[120px]" : "min-w-[200px] max-w-[200px]"
             }`}
         >
           <div
