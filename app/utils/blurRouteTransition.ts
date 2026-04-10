@@ -92,6 +92,31 @@ function setOverlayBlur(overlay: HTMLDivElement, blurPx: number) {
   overlay.style.setProperty("-webkit-backdrop-filter", `blur(${blurPx}px)`);
 }
 
+function waitForOverlayTransitionEnd(
+  overlay: HTMLDivElement,
+  expectedMs: number
+): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      overlay.removeEventListener("transitionend", onEnd);
+      resolve();
+    };
+
+    const onEnd = (ev: TransitionEvent) => {
+      if (ev.target !== overlay) return;
+      if (ev.propertyName !== "opacity") return;
+      finish();
+    };
+
+    const timeoutId = window.setTimeout(finish, Math.max(120, expectedMs + 120));
+    overlay.addEventListener("transitionend", onEnd);
+  });
+}
+
 function animateToMidpoint(overlay: HTMLDivElement, mobile = false): Promise<void> {
   const { phaseInMs, ease, maxBlurPx, holdOpacity, holdBackgroundAlpha } = ANIMATION_CONFIG.routeBlurTransition;
   return new Promise((resolve) => {
@@ -110,7 +135,7 @@ function animateToMidpoint(overlay: HTMLDivElement, mobile = false): Promise<voi
         setOverlayBlur(overlay, maxBlurPx * 0.5);
       });
     }
-    window.setTimeout(resolve, phaseInMs);
+    void waitForOverlayTransitionEnd(overlay, phaseInMs).then(resolve);
   });
 }
 
@@ -127,11 +152,11 @@ function animateOut(overlay: HTMLDivElement, outMs: number, mobile = false): Pro
       overlay.style.transition = `opacity ${outMs}ms ${ease}, backdrop-filter ${outMs}ms ${ease}, -webkit-backdrop-filter ${outMs}ms ${ease}, background-color ${outMs}ms ${ease}`;
       requestAnimationFrame(() => {
         overlay.style.opacity = "0";
-        overlay.style.background = "rgba(255,255,255,0.04)";
+        overlay.style.background = "rgba(255,255,255,0)";
         setOverlayBlur(overlay, 0);
       });
     }
-    window.setTimeout(resolve, outMs);
+    void waitForOverlayTransitionEnd(overlay, outMs).then(resolve);
   });
 }
 
@@ -170,14 +195,17 @@ async function navigateWithLoadingAwareBlur({
     router.push(toPath);
   }, Math.max(0, pushDelayMs));
 
-  await phaseInPromise;
+  // Do not force a full "midpoint hold" once the destination is already ready.
+  // Racing phase-in vs readiness prevents the extra white pulse (in->hold->out)
+  // and turns this into a single continuous blur/fade for fast navigations.
+  await Promise.race([phaseInPromise, readyPromise]);
+  const readyDuringPhaseIn = readyResolved;
 
   if (!readyResolved) {
     await readyPromise;
-    await animateOut(overlay, phaseOutMs, mobile);
-  } else {
-    await animateOut(overlay, phaseOutFastMs, mobile);
   }
+
+  await animateOut(overlay, readyDuringPhaseIn ? phaseOutFastMs : phaseOutMs, mobile);
   overlay.remove();
   transitionInProgress = false;
 }
