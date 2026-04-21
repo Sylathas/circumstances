@@ -167,9 +167,9 @@ async function navigateWithLoadingAwareBlur({
     : cfg.phaseOutFastMs;
   const pushDelayMs = mobile ? Math.min(cfg.pushDelayMs, 70) : cfg.pushDelayMs;
   const overlay = createHoldBlurOverlay();
-  let loaderEl: HTMLDivElement | null = null;
+  const loaderRef: { current: HTMLDivElement | null } = { current: null };
   const loaderTimeout = window.setTimeout(() => {
-    loaderEl = addLoadingKeyhole(overlay);
+    loaderRef.current = addLoadingKeyhole(overlay);
   }, 5000);
   let readyResolved = false;
 
@@ -195,7 +195,7 @@ async function navigateWithLoadingAwareBlur({
 
   await animateOut(overlay, readyDuringPhaseIn ? phaseOutFastMs : phaseOutMs, mobile);
   window.clearTimeout(loaderTimeout);
-  loaderEl?.remove();
+  loaderRef.current?.remove();
   overlay.remove();
   transitionInProgress = false;
 }

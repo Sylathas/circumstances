@@ -78,7 +78,6 @@ export function findInteractiveNodeName(obj: THREE.Object3D | null): StateNodeNa
     }
     if (key in STATE_NODE_BY_TOKEN) return STATE_NODE_BY_TOKEN[key];
     return ACTION_TO_STATE_NODE[INTERACTIVE_NODE_TO_ACTION[key]];
-    cur = cur.parent;
   }
   return null;
 }

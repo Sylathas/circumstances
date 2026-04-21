@@ -83,6 +83,8 @@ export default function DiaryPage() {
               id: d.id,
               cover: data?.cover ?? "",
               description: data?.description ?? "",
+              name: data?.name ?? "",
+              subtitle: data?.subtitle ?? "",
               order,
             };
           }
