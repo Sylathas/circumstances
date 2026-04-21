@@ -32,4 +32,6 @@ export interface DiaryEntry {
   id: string;
   cover: string;
   description: string;
+  name: string;
+  subtitle: string;
 }

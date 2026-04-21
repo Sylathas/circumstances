@@ -159,6 +159,7 @@ export function useProjectsCarousel() {
     authLoading,
     loading,
     isAdmin,
+    projects,
     activeFilters,
     toggleFilter,
     filteredProjects,

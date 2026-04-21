@@ -1,12 +1,5 @@
-"use client";
-
-import { HomeExperience } from "../components/home/HomeExperience";
-import { PageTransition } from "../components/PageTransition";
+import { redirect } from "next/navigation";
 
 export default function HomeMenuPage() {
-  return (
-    <PageTransition type="fade" className="min-h-screen bg-white">
-      <HomeExperience mode="menu-only" />
-    </PageTransition>
-  );
+  redirect("/");
 }

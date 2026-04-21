@@ -3,6 +3,7 @@
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/app/components/firebase/firebaseConfig";
 import type { Project } from "@/app/types/project";
+import { preloadCarouselMrRoughness } from "@/app/components/carousel/carouselRoughness";
 
 let cachedProjects: Project[] | null = null;
 let inFlight: Promise<Project[]> | null = null;
@@ -38,7 +39,10 @@ export async function warmupProjectsCarousel(options?: {
   const maxImages = options?.maxImages ?? 8;
 
   if (cachedProjects) {
-    if (preloadImages) preloadProjectImages(cachedProjects, maxImages);
+    if (preloadImages) {
+      preloadProjectImages(cachedProjects, maxImages);
+      preloadCarouselMrRoughness();
+    }
     return cachedProjects;
   }
   if (inFlight) return inFlight;
@@ -47,7 +51,10 @@ export async function warmupProjectsCarousel(options?: {
     .then((snap) => {
       const list = toProjectList(snap);
       cachedProjects = list;
-      if (preloadImages) preloadProjectImages(list, maxImages);
+      if (preloadImages) {
+        preloadProjectImages(list, maxImages);
+        preloadCarouselMrRoughness();
+      }
       return list;
     })
     .finally(() => {

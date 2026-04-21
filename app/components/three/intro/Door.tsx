@@ -16,6 +16,12 @@ import { ANIMATION_CONFIG } from '@/app/config/animation'
 import { useIsMobile } from '@/app/hooks/useIsMobile'
 
 type Phase = 'following' | 'rotating' | 'door'
+const DOOR_OPEN_MS = 2000
+
+function easeInOutCubic(t: number): number {
+    if (t < 0.5) return 4 * t * t * t
+    return 1 - Math.pow(-2 * t + 2, 3) / 2
+}
 
 function KeyHole({ setPhase, position, groupRef, whiteMaterial }: {
     setPhase: (phase: Phase) => void,
@@ -51,9 +57,11 @@ function KeyHole({ setPhase, position, groupRef, whiteMaterial }: {
 type DoorProps = {
     onPhaseChange?: (phase: Phase) => void
     onDoorOpened?: () => void
+    /** Eased 0–1 while the door is opening; used to ramp bloom. Not called when phase !== 'door'. */
+    onDoorBloomProgress?: (eased01: number) => void
 }
 
-export default function Door({ onPhaseChange, onDoorOpened }: DoorProps) {
+export default function Door({ onPhaseChange, onDoorOpened, onDoorBloomProgress }: DoorProps) {
     const isMobile = useIsMobile()
     const [phase, setPhase] = useState<Phase>('following')
     const [capturedTransform, setCapturedTransform] = useState<THREE.Matrix4 | null>(null)
@@ -62,6 +70,8 @@ export default function Door({ onPhaseChange, onDoorOpened }: DoorProps) {
     const doorRef = useRef<THREE.Group | null>(null)
     const keyholeRef = useRef<THREE.Group | null>(null)
     const openedNotifiedRef = useRef(false)
+    const doorAnimStartMsRef = useRef<number | null>(null)
+    const doorStartRotYRef = useRef<number | null>(null)
     const whiteMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffffff }), [])
     const blockPointer = (e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation()
@@ -72,15 +82,29 @@ export default function Door({ onPhaseChange, onDoorOpened }: DoorProps) {
         onPhaseChange?.(next)
     }
 
+    useEffect(() => {
+        if (phase !== 'door') {
+            onDoorBloomProgress?.(0)
+        }
+    }, [phase, onDoorBloomProgress])
+
     useFrame(() => {
         if (phase !== 'door') return
         if (!doorRef.current || !capturedTransform) return
+        const now = performance.now()
+        if (doorAnimStartMsRef.current === null) {
+            doorAnimStartMsRef.current = now
+            doorStartRotYRef.current = doorRef.current.rotation.y
+        }
+        const t = Math.min(1, Math.max(0, (now - doorAnimStartMsRef.current) / DOOR_OPEN_MS))
+        const eased = easeInOutCubic(t)
+        onDoorBloomProgress?.(eased)
         doorRef.current.rotation.y = THREE.MathUtils.lerp(
-            doorRef.current.rotation.y,
+            doorStartRotYRef.current ?? 0,
             DOOR_TARGET_ROT,
-            ANIMATION_CONFIG.introDoor.rotateLerp
+            eased
         )
-        if (!openedNotifiedRef.current && Math.abs(doorRef.current.rotation.y - DOOR_TARGET_ROT) < 0.03) {
+        if (!openedNotifiedRef.current && t >= 1) {
             openedNotifiedRef.current = true
             onDoorOpened?.()
         }

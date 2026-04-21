@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
-import Image from "next/image";
 import { CSS } from "@dnd-kit/utilities";
 import type { DiaryEntry } from "@/app/types/project";
+import ProgressiveImage from "@/app/components/common/ProgressiveImage";
 
 type SortableDiaryEntryTileProps = {
   entry: DiaryEntry;
@@ -52,7 +52,7 @@ export default function SortableDiaryEntryTile({
     >
       <div className="relative z-10 h-full w-full">
         {entry.cover ? (
-          <Image
+          <ProgressiveImage
             src={entry.cover}
             alt=""
             fill

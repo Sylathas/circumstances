@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
   basePath: basePath || undefined,
   assetPrefix,
   images: {
+    qualities: [22, 75, 82],
     remotePatterns: [
       {
         protocol: "https",

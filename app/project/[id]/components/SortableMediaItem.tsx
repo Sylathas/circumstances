@@ -8,8 +8,8 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import Image from "next/image";
 import type { MediaItem } from "../utils/projectData";
+import ProgressiveImage from "@/app/components/common/ProgressiveImage";
 
 type SortableMediaItemProps = {
   item: MediaItem;
@@ -40,7 +40,7 @@ export default function SortableMediaItem({
 
   const content =
     item.type === "image" ? (
-      <Image
+      <ProgressiveImage
         src={item.url}
         alt=""
         fill

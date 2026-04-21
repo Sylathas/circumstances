@@ -340,7 +340,7 @@ export default function StudioPage() {
         <Header
           activeFilters={new Set()}
           onFilterToggle={() => { }}
-          backHref="/home"
+          backHref="/"
           onSave={isAdmin ? handleSave : undefined}
           saveState={saveState}
           showCategoryFilters={false}

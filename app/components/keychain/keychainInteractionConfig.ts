@@ -26,9 +26,22 @@ export const IDLE_ONLY_PREFIXES = ["Bone"] as const;
 
 export const INTERACTIVE_NODE_TO_ACTION: Record<string, ActionName> = {
   diarykey: "Diary",
+  diarytext: "Diary",
+  diary: "Diary",
   projects: "Projects",
+  projectstext: "Projects",
+  project: "Projects",
   studio: "Studio",
+  studiotext: "Studio",
   tag: "Tag",
+  keyringtag: "Tag",
+};
+
+const ACTION_TO_STATE_NODE: Record<ActionName, StateNodeName> = {
+  Diary: "Diary Key",
+  Projects: "Projects",
+  Studio: "Studio",
+  Tag: "Tag",
 };
 
 export const ACTION_ROUTE: Partial<Record<ActionName, string>> = {
@@ -64,6 +77,7 @@ export function findInteractiveNodeName(obj: THREE.Object3D | null): StateNodeNa
       continue;
     }
     if (key in STATE_NODE_BY_TOKEN) return STATE_NODE_BY_TOKEN[key];
+    return ACTION_TO_STATE_NODE[INTERACTIVE_NODE_TO_ACTION[key]];
     cur = cur.parent;
   }
   return null;

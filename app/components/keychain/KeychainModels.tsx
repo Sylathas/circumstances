@@ -8,10 +8,10 @@
 
 import { useAnimations, useGLTF } from "@react-three/drei";
 import { type ThreeEvent } from "@react-three/fiber";
-import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { KEYCHAIN_MODELS } from "./keychainAssets";
-import { buildManagedClips } from "./keychainClipUtils";
+import { buildManagedClips, reportClipsTouchingStateNodes } from "./keychainClipUtils";
 import { useLoading } from "@/app/context/LoadingContext";
 import { useDeviceTier } from "@/app/context/DeviceTierContext";
 import { useKeychainBlend, HOVER_BLEND_MS, IDLE_BLEND_MS } from "@/app/hooks/useKeychainBlend";
@@ -26,13 +26,14 @@ import {
   type ManagedClipName,
   ROOT_POS,
   ROOT_ROT,
+  STATE_NODES,
   type StateNodeName,
 } from "./keychainInteractionConfig";
 
-// Only preload both variants when they differ. Currently wholeLod1 is a placeholder
-// pointing to the same file, so preloading it twice would fetch twice for nothing.
+// Preload low/high variants for progressive startup.
 useGLTF.preload(KEYCHAIN_MODELS.whole);
-if (KEYCHAIN_MODELS.wholeLod1 !== KEYCHAIN_MODELS.whole) {
+useGLTF.preload(KEYCHAIN_MODELS.wholeLowres);
+if (KEYCHAIN_MODELS.wholeLod1 !== KEYCHAIN_MODELS.wholeLowres) {
   useGLTF.preload(KEYCHAIN_MODELS.wholeLod1);
 }
 
@@ -41,6 +42,16 @@ function clearTimeoutRef(timeoutRef: RefObject<number | null>) {
     window.clearTimeout(timeoutRef.current);
     timeoutRef.current = null;
   }
+}
+
+/** Keep `IdleChain` time aligned when `IdleState` is reset (same source clip, two actions). */
+function restartIdleChainLoop(action: THREE.AnimationAction | null | undefined) {
+  if (!action) return;
+  action.reset();
+  action.setLoop(THREE.LoopRepeat, Infinity);
+  action.clampWhenFinished = false;
+  action.enabled = true;
+  action.play();
 }
 
 type KeychainModelsProps = {
@@ -59,12 +70,17 @@ export default function KeychainModels({
   const clickBlendLockRef = useRef(false);
   const clickBlendLockTimeoutRef = useRef<number | null>(null);
   const managedActionsRef = useRef<Partial<Record<ManagedClipName, THREE.AnimationAction>>>({});
+  const [animDebug, setAnimDebug] = useState(false);
 
   const { markGlbReady } = useLoading();
   const { tier } = useDeviceTier();
-  const modelUrl = (tier === "mobile" || tier === "battery-saver")
-    ? KEYCHAIN_MODELS.wholeLod1
-    : KEYCHAIN_MODELS.whole;
+  const shouldStayLowRes = tier === "battery-saver";
+  const lowResModelUrl =
+    tier === "mobile" || tier === "battery-saver"
+      ? KEYCHAIN_MODELS.wholeLod1
+      : KEYCHAIN_MODELS.wholeLowres;
+  /** One GLB per mount (no low→high swap) fixes mixer/action bugs after intro; battery-saver keeps LOD. */
+  const modelUrl = shouldStayLowRes ? lowResModelUrl : KEYCHAIN_MODELS.whole;
   const { scene, animations } = useGLTF(modelUrl);
   const { mixer } = useAnimations(animations, rootRef);
 
@@ -76,6 +92,70 @@ export default function KeychainModels({
   }, [scene]);
 
   const managedClips = useMemo(() => buildManagedClips(animations), [animations]);
+
+  useEffect(() => {
+    setAnimDebug(new URLSearchParams(window.location.search).get("keychainAnimDebug") === "1");
+  }, []);
+
+  useEffect(() => {
+    if (!animDebug) return;
+    const idleState = managedClips.IdleState;
+    const idleChain = managedClips.IdleChain;
+    console.group("[keychainAnimDebug] clips from GLB");
+    console.log("modelUrl (which file is loaded):", modelUrl);
+    console.table(
+      animations.map((a) => ({
+        name: a.name,
+        duration: Number(a.duration.toFixed(4)),
+        tracks: a.tracks.length,
+      }))
+    );
+    console.log(
+      "[keychainAnimDebug] STATE_NODES present in each clip (if Idle is empty here for diarykey etc., those curves are not in this GLB under that clip name):"
+    );
+    console.table(reportClipsTouchingStateNodes(animations, STATE_NODES));
+    console.log("IdleState track count:", idleState?.tracks.length ?? 0);
+    console.log("IdleChain track count:", idleChain?.tracks.length ?? 0);
+    if (idleState) {
+      console.log("IdleState sample track names:", idleState.tracks.slice(0, 30).map((t) => t.name));
+    }
+    if (idleChain) {
+      console.log("IdleChain sample track names:", idleChain.tracks.slice(0, 30).map((t) => t.name));
+    }
+    if (idleState && idleChain) {
+      const idleNames = new Set(idleState.tracks.map((t) => t.name));
+      const overlap = idleChain.tracks.filter((t) => idleNames.has(t.name)).length;
+      console.log(
+        "Tracks present on both IdleState and IdleChain (same bindings = double-driven):",
+        overlap,
+        "/",
+        idleChain.tracks.length
+      );
+    }
+    console.groupEnd();
+  }, [animDebug, animations, managedClips, modelUrl]);
+
+  useEffect(() => {
+    if (!animDebug) return;
+    const id = window.setInterval(() => {
+      const idle = managedActionsRef.current.IdleState;
+      const chain = managedActionsRef.current.IdleChain;
+      console.log("[keychainAnimDebug] actions ~1s", {
+        idleTime: idle?.time,
+        idleEffWeight: idle?.getEffectiveWeight(),
+        idleWeight: idle?.weight,
+        idleEnabled: idle?.enabled,
+        idlePaused: idle?.paused,
+        idleRunning: idle?.isRunning(),
+        chainTime: chain?.time,
+        chainEffWeight: chain?.getEffectiveWeight(),
+        chainEnabled: chain?.enabled,
+        chainPaused: chain?.paused,
+        chainRunning: chain?.isRunning(),
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [animDebug, modelUrl]);
 
   const {
     hoverBlendRef,
@@ -90,7 +170,6 @@ export default function KeychainModels({
   } = useKeychainBlend({
     managedClips,
     mixer,
-    rootRef,
     scene,
     onIdleBlendComplete: () => {
       currentActionRef.current = "Idle";
@@ -104,7 +183,7 @@ export default function KeychainModels({
         child.receiveShadow = true;
       }
       if (child instanceof THREE.Light) {
-        if (child.name === "Accent") child.intensity = 20 * 15;
+        if (child.name === "Accent") child.intensity = 40 * 15;
         if (child.name === "Front") child.intensity = 80 * 15;
       }
     });
@@ -117,7 +196,9 @@ export default function KeychainModels({
       if (cached) return cached;
       const clip = managedClips[name];
       if (!clip) return null;
-      const action = mixer.clipAction(clip, rootRef.current ?? scene);
+      // Always bind to the glTF root `scene` (not the outer R3F group). Mixing `rootRef` and
+      // `scene` across actions or with a null ref on first call breaks PropertyBinding resolution.
+      const action = mixer.clipAction(clip, scene);
       managedActionsRef.current[name] = action;
       return action;
     },
@@ -132,24 +213,17 @@ export default function KeychainModels({
     idle.clampWhenFinished = false;
     idle.enabled = true;
     idle.play();
-    const idleChain = getAction("IdleChain");
-    if (idleChain) {
-      idleChain.reset();
-      idleChain.setLoop(THREE.LoopRepeat, Infinity);
-      idleChain.clampWhenFinished = false;
-      idleChain.enabled = true;
-      idleChain.play();
-    }
+    restartIdleChainLoop(getAction("IdleChain"));
     return () => {
       for (const key of Object.keys(managedActionsRef.current) as ManagedClipName[]) {
         const action = managedActionsRef.current[key];
         if (!action) continue;
         action.stop();
-        mixer.uncacheAction(action.getClip(), rootRef.current ?? scene);
+        mixer.uncacheAction(action.getClip(), scene);
       }
       for (const action of hoverActionsRef.current.values()) {
         action.stop();
-        mixer.uncacheAction(action.getClip(), rootRef.current ?? scene);
+        mixer.uncacheAction(action.getClip(), scene);
       }
       hoverActionsRef.current.clear();
       clearTimeoutRef(clickBlendLockTimeoutRef);
@@ -185,6 +259,49 @@ export default function KeychainModels({
     }, Math.round(BLEND_SECONDS * 1000) + 20);
   }, [getAction]);
 
+  const returnToIdleFromAction = useCallback(
+    (actionName: ActionName) => {
+      stopAllHoverActions();
+      hoverActionRef.current = null;
+      hoveredNodeRef.current = null;
+      idleBlendRef.current = null;
+      const idle = getAction("IdleState");
+      const from = getAction(actionName);
+      if (!idle) {
+        currentActionRef.current = "Idle";
+        armedSecondClickRef.current = null;
+        return;
+      }
+      if (!from) {
+        currentActionRef.current = "Idle";
+        armedSecondClickRef.current = null;
+        idle.reset();
+        restartIdleChainLoop(getAction("IdleChain"));
+        idle.setLoop(THREE.LoopRepeat, Infinity);
+        idle.clampWhenFinished = false;
+        idle.setEffectiveWeight(1);
+        idle.enabled = true;
+        idle.play();
+        return;
+      }
+      idle.reset();
+      restartIdleChainLoop(getAction("IdleChain"));
+      idle.setLoop(THREE.LoopRepeat, Infinity);
+      idle.clampWhenFinished = false;
+      idle.setEffectiveWeight(0);
+      idle.enabled = true;
+      idle.play();
+      from.enabled = true;
+      from.paused = false;
+      from.setEffectiveWeight(1);
+      idle.crossFadeFrom(from, BLEND_SECONDS, false);
+      stopActionAfterBlend(actionName);
+      currentActionRef.current = "Idle";
+      armedSecondClickRef.current = null;
+    },
+    [getAction, idleBlendRef, stopActionAfterBlend, stopAllHoverActions]
+  );
+
   const toIdle = useCallback(() => {
     armedSecondClickRef.current = null;
     if (idleBlendRef.current) return;
@@ -200,7 +317,10 @@ export default function KeychainModels({
       return;
     }
     from.enabled = true;
-    idle.reset();
+    // Do not reset IdleState / IdleChain here: they keep advancing on the mixer during
+    // hover and one-click "hold" clips; resetting made the chain idle look like it restarted
+    // when clicking away back to general idle.
+    idle.paused = false;
     idle.enabled = true;
     idle.setLoop(THREE.LoopRepeat, Infinity);
     idle.clampWhenFinished = false;
@@ -326,6 +446,7 @@ export default function KeychainModels({
       clip === currentActionRef.current &&
       !clickBlendLockRef.current
     ) {
+      returnToIdleFromAction(clip);
       if (clip === "Tag") {
         window.location.href = MAILTO_URL;
       } else {
@@ -335,7 +456,7 @@ export default function KeychainModels({
     }
     armedSecondClickRef.current = clip;
     playClipAndHold(clip);
-  }, [interactive, playClipAndHold]);
+  }, [interactive, playClipAndHold, returnToIdleFromAction]);
 
   const onPointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
     if (!interactive) return;
@@ -373,7 +494,14 @@ export default function KeychainModels({
 
   useEffect(() => {
     const available = animations.map((a) => a.name);
-    if (!managedClips.IdleState || !managedClips.HoveredBase || !managedClips.Diary || !managedClips.Projects || !managedClips.Studio || !managedClips.Tag) {
+    const missingRequired =
+      !managedClips.IdleState ||
+      !managedClips.HoveredBase ||
+      !managedClips.Diary ||
+      !managedClips.Projects ||
+      !managedClips.Studio ||
+      !managedClips.Tag;
+    if (missingRequired) {
       console.warn(
         "[KeychainModels] Missing one or more required clips (Idle/Hovered/Diary/Projects/Studio/Tag).",
         available
@@ -385,7 +513,7 @@ export default function KeychainModels({
         available
       );
     }
-  }, [animations, managedClips]);
+  }, [animations, managedClips, modelUrl]);
 
   return (
     <group ref={rootRef} position={ROOT_POS} rotation={ROOT_ROT} visible={visible}>

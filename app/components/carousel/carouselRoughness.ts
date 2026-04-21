@@ -2,13 +2,27 @@ import * as THREE from "three";
 import { useEffect, useState } from "react";
 
 /** Packed Metallic–Roughness map (Unreal/Fab): R=Metallic, G=Roughness, B=AO. */
-export const ROUGHNESS_MR_TEXTURE_URL = "/textures/T_uh4qbflc_2K_MR.png";
+export const ROUGHNESS_MR_TEXTURE_URL = "/textures/T_uh4qbflc_2K_MR.jpg";
 
 /**
  * Zoom factor for the roughness texture.
  * 1 = one tile across the card, >1 = more tiles (finer detail).
  */
 export const ROUGHNESS_ZOOM = 0.1;
+
+/** Matches CarouselCard plane/card sizes × ROUGHNESS_ZOOM so MR decode runs before Canvas mounts. */
+export function preloadCarouselMrRoughness(): void {
+  if (typeof window === "undefined") return;
+  const keys = new Set<string>();
+  const enqueue = (w: number, h: number) => {
+    const k = `${w}-${h}`;
+    if (keys.has(k)) return;
+    keys.add(k);
+    void loadRoughnessTextureFromMR(ROUGHNESS_MR_TEXTURE_URL, w, h);
+  };
+  enqueue(2.5 * ROUGHNESS_ZOOM, 4 * ROUGHNESS_ZOOM);
+  enqueue(3.5 * ROUGHNESS_ZOOM, 2.5 * ROUGHNESS_ZOOM);
+}
 
 const mrCanvasCache: Record<string, HTMLCanvasElement> = {};
 const mrTextureCache: Record<string, THREE.Texture> = {};

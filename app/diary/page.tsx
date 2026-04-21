@@ -168,7 +168,7 @@ export default function DiaryPage() {
         <Header
           activeFilters={new Set()}
           onFilterToggle={() => { }}
-          backHref="/home"
+          backHref="/"
           showCategoryFilters={false}
         />
         <main className="w-full h-full bg-white pt-10 pb-2">

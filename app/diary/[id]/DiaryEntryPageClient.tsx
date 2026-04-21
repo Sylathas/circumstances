@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, usePathname } from "next/navigation";
-import Image from "next/image";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 import { db } from "@/app/components/firebase/firebaseConfig";
@@ -12,6 +11,7 @@ import { PageTransition } from "@/app/components/PageTransition";
 import type { DiaryEntry } from "@/app/types/project";
 import { emitRouteReady } from "@/app/utils/routeReady";
 import { uploadFile } from "@/app/utils/storage";
+import ProgressiveImage from "@/app/components/common/ProgressiveImage";
 
 export default function DiaryEntryPageClient() {
   const params = useParams();
@@ -24,6 +24,8 @@ export default function DiaryEntryPageClient() {
   const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
   const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
   const [description, setDescription] = useState("");
+  const [name, setName] = useState("");
+  const [subtitle, setSubtitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -44,10 +46,14 @@ export default function DiaryEntryPageClient() {
         id: snap.id,
         cover: data.cover ?? "",
         description: data.description ?? "",
+        name: data.name ?? "",
+        subtitle: data.subtitle ?? "",
       };
       setEntry(loaded);
       setCover(loaded.cover);
       setDescription(loaded.description);
+      setName(loaded.name);
+      setSubtitle(loaded.subtitle);
       setPendingCoverFile(null);
       setPendingCoverPreview(null);
     } catch (err) {
@@ -79,6 +85,8 @@ export default function DiaryEntryPageClient() {
       await updateDoc(doc(db, "diary", entry.id), {
         cover: nextCover,
         description,
+        name,
+        subtitle,
       });
       setCover(nextCover);
       setPendingCoverFile(null);
@@ -143,17 +151,42 @@ export default function DiaryEntryPageClient() {
           saveState={saveState}
           showCategoryFilters={false}
         />
-        <main className="w-full h-full bg-white pt-50 pb-10">
+        <main className="w-full h-full bg-white pt-30 pb-10">
           <section className="relative bottom-4 w-full mx-auto px-4">
+            <div className="text-[#171717] text-xs whitespace-pre-wrap w-5/6 mb-0 uppercase">
+              {isAdmin ? (
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-transparent border-none outline-none font-inherit uppercase"
+                  placeholder="Diary entry name"
+                />
+              ) : (
+                name
+              )}
+            </div>
+            <div className="text-[#171717] text-xs whitespace-pre-wrap w-5/6 mb-20 uppercase">
+              {isAdmin ? (
+                <input
+                  value={subtitle}
+                  onChange={(e) => setSubtitle(e.target.value)}
+                  className="w-full bg-transparent border-none outline-none font-inherit uppercase"
+                  placeholder="Diary entry subtitle"
+                />
+              ) : (
+                subtitle
+              )}
+            </div>
             <div className="mb-8 w-full">
               {(pendingCoverPreview || cover) && (
                 <div className="relative w-full max-w-xl max-h-[400px] aspect-[1/1] overflow-hidden">
-                  <Image
+                  <ProgressiveImage
                     src={pendingCoverPreview ?? cover}
                     alt=""
                     fill
                     sizes="(max-width: 768px) 100vw, 576px"
                     className="object-contain object-left"
+                    unoptimized={Boolean(pendingCoverPreview)}
                   />
                 </div>
               )}
@@ -181,7 +214,7 @@ export default function DiaryEntryPageClient() {
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full min-h-[200px] bg-transparent outline-none font-inherit resize-vertical"
+                  className="w-full bg-transparent outline-none font-inherit resize-vertical"
                   placeholder="Diary entry text"
                 />
               ) : (

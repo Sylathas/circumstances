@@ -11,6 +11,13 @@ import { useGLTF } from '@react-three/drei'
 import React, { useRef, useEffect, useCallback } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 
+const KEY_APPROACH_MS = 500;
+const KEY_ROTATE_MS = 1000;
+
+function easeInOutCubic(t: number): number {
+    if (t < 0.5) return 4 * t * t * t;
+    return 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
 
 export default function Key({ phase, setPhase, setCapturedTransform, whiteMaterial, isMobileMode }: {
     phase: 'following' | 'rotating' | 'door',
@@ -31,9 +38,15 @@ export default function Key({ phase, setPhase, setCapturedTransform, whiteMateri
     const raycaster = useRef<THREE.Raycaster>(new THREE.Raycaster())
     const plane = useRef<THREE.Plane>(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0))
     const targetPosition = useRef<THREE.Vector3>(new THREE.Vector3())
-    const currentRotationY = useRef<number | null>(null)
     const mobileSpawnedRef = useRef(false)
-    const mobileTurnTargetQuat = useRef<THREE.Quaternion | null>(null)
+    const approachStartPosRef = useRef<THREE.Vector3 | null>(null)
+    const approachStartMsRef = useRef<number | null>(null)
+    const approachDoneRef = useRef(false)
+    const turnStartQuatRef = useRef<THREE.Quaternion | null>(null)
+    const turnTargetQuatRef = useRef<THREE.Quaternion | null>(null)
+    const turnStartMsRef = useRef<number | null>(null)
+    const turnStartYRef = useRef<number | null>(null)
+    const turnTargetYRef = useRef<number | null>(null)
 
     const { scene } = useGLTF('/models/Circumstances_Website_KeyC.glb')
     const camera = useThree()
@@ -72,11 +85,18 @@ export default function Key({ phase, setPhase, setCapturedTransform, whiteMateri
 
     useFrame(() => {
         if (!meshRef.current) return
+        const now = performance.now()
 
         if (phase === 'following') {
             mobileSpawnedRef.current = false
-            currentRotationY.current = null
-            mobileTurnTargetQuat.current = null
+            approachStartPosRef.current = null
+            approachStartMsRef.current = null
+            approachDoneRef.current = false
+            turnStartQuatRef.current = null
+            turnTargetQuatRef.current = null
+            turnStartMsRef.current = null
+            turnStartYRef.current = null
+            turnTargetYRef.current = null
             if (isMobileMode) {
                 meshRef.current.visible = false
                 return
@@ -120,46 +140,79 @@ export default function Key({ phase, setPhase, setCapturedTransform, whiteMateri
                     meshRef.current.rotateX(Math.PI / 2)
                     meshRef.current.rotateY(Math.PI / 2)
                     mobileSpawnedRef.current = true
-                    currentRotationY.current = null
-                    mobileTurnTargetQuat.current = null
+                    approachStartPosRef.current = meshRef.current.position.clone()
+                    approachStartMsRef.current = now
+                    approachDoneRef.current = false
+                    turnStartQuatRef.current = null
+                    turnTargetQuatRef.current = null
+                    turnStartMsRef.current = null
                 }
-                const arrived = meshRef.current.position.distanceTo(MOBILE_APPROACH_POSITION.current) < 0.2
-                if (!arrived) {
-                    meshRef.current.position.lerp(MOBILE_APPROACH_POSITION.current, 0.1)
-                    meshRef.current.lookAt(KEYHOLE_POSITION.current)
-                    meshRef.current.rotateX(Math.PI / 2)
-                    meshRef.current.rotateY(Math.PI / 2)
-                    return
+                if (!approachDoneRef.current) {
+                    const approachStart = approachStartPosRef.current ?? meshRef.current.position
+                    const approachT = Math.min(1, Math.max(0, (now - (approachStartMsRef.current ?? now)) / KEY_APPROACH_MS))
+                    const approachEase = easeInOutCubic(approachT)
+                    meshRef.current.position.lerpVectors(approachStart, MOBILE_APPROACH_POSITION.current, approachEase)
+                    if (approachT < 1) {
+                        meshRef.current.lookAt(KEYHOLE_POSITION.current)
+                        meshRef.current.rotateX(Math.PI / 2)
+                        meshRef.current.rotateY(Math.PI / 2)
+                        return
+                    }
+                    approachDoneRef.current = true
                 }
-                if (mobileTurnTargetQuat.current === null) {
-                    const startQuat = meshRef.current.quaternion.clone()
+                if (turnStartQuatRef.current === null || turnTargetQuatRef.current === null) {
+                    turnStartQuatRef.current = meshRef.current.quaternion.clone()
                     // Build a stable local-space turn target to avoid Euler axis flips.
                     const turnQuat = new THREE.Quaternion().setFromAxisAngle(
                         new THREE.Vector3(0, 1, 0),
                         -Math.PI / 2
                     )
-                    mobileTurnTargetQuat.current = startQuat.multiply(turnQuat)
+                    turnTargetQuatRef.current = turnStartQuatRef.current.clone().multiply(turnQuat)
+                    turnStartMsRef.current = now
                 }
-                meshRef.current.quaternion.slerp(mobileTurnTargetQuat.current, 0.08)
-                if (meshRef.current.quaternion.angleTo(mobileTurnTargetQuat.current) < 0.02) {
+                const turnT = Math.min(1, Math.max(0, (now - (turnStartMsRef.current ?? now)) / KEY_ROTATE_MS))
+                const turnEase = easeInOutCubic(turnT)
+                meshRef.current.quaternion.slerpQuaternions(
+                    turnStartQuatRef.current,
+                    turnTargetQuatRef.current,
+                    turnEase
+                )
+                if (turnT >= 1) {
                     setCapturedTransform(meshRef.current.matrixWorld.clone())
                     setPhase('door')
                 }
                 return
             } else {
                 const approachTarget = KEYHOLE_APPROACH_POSITION.current
-                meshRef.current.position.lerp(approachTarget, 0.12)
-                const approachDone = meshRef.current.position.distanceTo(approachTarget) < 0.25
-                if (!approachDone) return
+                if (!approachDoneRef.current) {
+                    if (approachStartPosRef.current === null) {
+                        approachStartPosRef.current = meshRef.current.position.clone()
+                        approachStartMsRef.current = now
+                    }
+                    const approachT = Math.min(1, Math.max(0, (now - (approachStartMsRef.current ?? now)) / KEY_APPROACH_MS))
+                    const approachEase = easeInOutCubic(approachT)
+                    meshRef.current.position.lerpVectors(
+                        approachStartPosRef.current,
+                        approachTarget,
+                        approachEase
+                    )
+                    if (approachT < 1) return
+                    approachDoneRef.current = true
+                }
             }
-            if (currentRotationY.current === null) {
-                currentRotationY.current = meshRef.current.rotation.y
+            if (turnStartYRef.current === null || turnTargetYRef.current === null) {
+                turnStartYRef.current = meshRef.current.rotation.y
+                turnTargetYRef.current = turnStartYRef.current + Math.PI / 2
+                turnStartMsRef.current = now
             }
-
-            let target = currentRotationY.current + Math.PI / 2
-
-            meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, target, 0.05)
-            if (Math.abs(meshRef.current.rotation.y - target) < 0.01) {
+            const turnT = Math.min(1, Math.max(0, (now - (turnStartMsRef.current ?? now)) / KEY_ROTATE_MS))
+            const turnEase = easeInOutCubic(turnT)
+            meshRef.current.rotation.y = THREE.MathUtils.lerp(
+                turnStartYRef.current,
+                turnTargetYRef.current,
+                turnEase
+            )
+            if (turnT >= 1) {
                 setCapturedTransform(meshRef.current.matrixWorld.clone())
                 setPhase('door')
             }

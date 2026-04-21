@@ -3,11 +3,9 @@ export const ASSET_BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export const KEYCHAIN_MODELS = {
   whole: `${ASSET_BASE}/models/Homepage/Circumstances_Website_Whole.glb`,
-  /**
-   * LOD1 variant for mobile/battery-saver — lower poly + halved textures.
-   * Points to the same file until a Blender-exported LOD1 is committed.
-   */
-  wholeLod1: `${ASSET_BASE}/models/Homepage/Circumstances_Website_Whole.glb`,
+  wholeLowres: `${ASSET_BASE}/models/Homepage/Circumstances_Website_Whole_lowres.glb`,
+  /** Battery-saver / mobile tier LOD; full `whole` is used otherwise (no runtime GLB swap). */
+  wholeLod1: `${ASSET_BASE}/models/Homepage/Circumstances_Website_Whole_lowres.glb`,
 } as const;
 
 /** All keychain GLB URLs — use for preloading, iteration, etc. */

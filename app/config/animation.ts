@@ -11,6 +11,18 @@ export const ANIMATION_CONFIG = {
     scrollEasing: "easeOut" as "linear" | "easeOut",
     frontTurnNear: 0.3, // when cards start facing camera; 0.1–0.4
     frontTurnFar: 0.7, // when they fully stop turning; 0.5–1.0
+    /**
+     * Category filter transitions (projects carousel). With arcDelayMs and showDelayMs at 0,
+     * hide, arc adjustment, and show all start at the same time (parallel), each over its own duration.
+     * Increase delays to run steps one after another (e.g. showDelayMs after hideMs).
+     */
+    filterTransition: {
+      hideMs: 500,
+      arcDelayMs: 250,
+      arcMs: 1000,
+      showDelayMs: 250,
+      showMs: 500,
+    },
   },
   introDoor: {
     doorWidth: 30, // width of the door plane; 20–40
@@ -36,7 +48,7 @@ export const ANIMATION_CONFIG = {
     toneMaxLuminance: 16.0,
     toneAverageLuminance: 1.0,
     // Bloom
-    bloomIntensity: 0.2, // 0–1.5
+    bloomIntensity: .8, // 0–1.5
     bloomLuminanceThreshold: 0.35, // 0–1
     bloomLuminanceSmoothing: 0.6, // 0–1
     bloomRadius: 0.55, // 0–1

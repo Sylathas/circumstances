@@ -49,13 +49,15 @@ export type FxValues = typeof ANIMATION_CONFIG.scenePostFx;
 
 type CameraEffectsProps = {
     fxValues?: FxValues;
+    /** 0 = no bloom; 1 = full `scenePostFx.bloomIntensity`. Ramps during door open on intro. */
+    bloomIntensityScale?: number;
 };
 
 /** Wrapper so EffectComposer never receives `false` as a child (its types require ReactElement). */
-function BloomEffect({ fx }: { fx: FxValues }) {
+function BloomEffect({ fx, intensityScale }: { fx: FxValues; intensityScale: number }) {
     return (
         <Bloom
-            intensity={fx.bloomIntensity}
+            intensity={fx.bloomIntensity * intensityScale}
             luminanceThreshold={fx.bloomLuminanceThreshold}
             luminanceSmoothing={fx.bloomLuminanceSmoothing}
             radius={fx.bloomRadius}
@@ -64,15 +66,16 @@ function BloomEffect({ fx }: { fx: FxValues }) {
     )
 }
 
-function CameraEffects({ fxValues }: CameraEffectsProps) {
+function CameraEffects({ fxValues, bloomIntensityScale = 1 }: CameraEffectsProps) {
     const { tier, fxMatrix } = useDeviceTier()
     const tierFx = fxMatrix[tier]
     const fx = fxValues ?? ANIMATION_CONFIG.scenePostFx
+    const useBloom = tierFx.bloom && bloomIntensityScale > 0.001
 
     if (!tierFx.postProcessing) return null
     const ms = tier === "tablet" ? 4 : 8
 
-    if (!tierFx.bloom) {
+    if (!useBloom) {
         return (
             <EffectComposer multisampling={ms}>
                 <Vignette offset={fx.vignetteOffset} darkness={fx.vignetteDarkness} />
@@ -84,7 +87,7 @@ function CameraEffects({ fxValues }: CameraEffectsProps) {
 
     return (
         <EffectComposer multisampling={ms}>
-            <BloomEffect fx={fx} />
+            <BloomEffect fx={fx} intensityScale={bloomIntensityScale} />
             <Vignette offset={fx.vignetteOffset} darkness={fx.vignetteDarkness} />
             <Noise opacity={fx.noiseOpacity} />
             <HueSaturation hue={0} saturation={fx.saturation} />
@@ -136,6 +139,7 @@ export default function IntroScene({ mode, onIntroComplete, onKeyholeInserted, o
     const startInKeychain = mode === "menu-only"
     const [revealKeychain, setRevealKeychain] = useState(startInKeychain)
     const [doorOpened, setDoorOpened] = useState(startInKeychain)
+    const [doorBloomEased, setDoorBloomEased] = useState(startInKeychain ? 1 : 0)
     const [devEditorValues, setDevEditorValues] = useState<DevEditorValues | null>(null)
     const introZ = ANIMATION_CONFIG.introScene.cameraZ
     const phaseNotifiedRef = useRef(false)
@@ -164,6 +168,7 @@ export default function IntroScene({ mode, onIntroComplete, onKeyholeInserted, o
                     <UnifiedCameraRig revealKeychain={revealKeychain} />
                     {!startInKeychain && !doorOpened && (
                         <Door
+                            onDoorBloomProgress={setDoorBloomEased}
                             onPhaseChange={(phase) => {
                                 if (phase === 'rotating') {
                                     onKeyholeInserted?.()
@@ -173,6 +178,7 @@ export default function IntroScene({ mode, onIntroComplete, onKeyholeInserted, o
                             onDoorOpened={() => {
                                 if (phaseNotifiedRef.current) return
                                 phaseNotifiedRef.current = true
+                                setDoorBloomEased(1)
                                 setDoorOpened(true)
                                 onIntroComplete()
                             }}
@@ -188,7 +194,10 @@ export default function IntroScene({ mode, onIntroComplete, onKeyholeInserted, o
                             interactive={startInKeychain || revealKeychain}
                         />
                     </group>
-                    <CameraEffects fxValues={devEditorValues?.fx ?? ANIMATION_CONFIG.scenePostFx} />
+                    <CameraEffects
+                        fxValues={devEditorValues?.fx ?? ANIMATION_CONFIG.scenePostFx}
+                        bloomIntensityScale={startInKeychain ? 1 : doorOpened ? 1 : doorBloomEased}
+                    />
                 </Suspense>
             </Canvas>
         </>

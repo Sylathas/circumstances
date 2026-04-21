@@ -13,6 +13,7 @@ type RouterLike = {
 let transitionInProgress = false;
 
 const HOME_ROUTES = new Set(["/", "/home", "/circumstances", "/circumstances/"]);
+const HOME_MENU_ONCE_KEY = "circumstances-home-menu-once";
 
 function normalizePath(path: string): string {
   const withoutQuery = path.split("?")[0]?.split("#")[0] ?? "/";
@@ -58,38 +59,41 @@ function waitForHomeSceneReady(maxWaitMs = 2200): Promise<void> {
   });
 }
 
-/**
- * Create the full-screen overlay that masks loading between route transitions.
- *
- * On mobile we skip backdrop-filter entirely:
- *  - The overlay is already fully opaque white, so blur adds nothing visible.
- *  - backdrop-filter is GPU-expensive and causes dropped frames on low-end phones.
- *  - Removing it also avoids a WebKit compositing quirk where the filter layer
- *    occasionally flashes transparent on Safari iOS mid-transition.
- */
-function createHoldBlurOverlay(mobile = false): HTMLDivElement {
+function createHoldBlurOverlay(): HTMLDivElement {
   const overlay = document.createElement("div");
   overlay.style.position = "fixed";
   overlay.style.inset = "0";
   overlay.style.zIndex = "9999";
   overlay.style.pointerEvents = "none";
   overlay.style.opacity = "0";
-  overlay.style.background = "rgba(255,255,255,0)";
+  overlay.style.background = "#fff";
   overlay.style.transition = "none";
-  if (!mobile) {
-    overlay.style.backdropFilter = "blur(0px)";
-    overlay.style.setProperty("-webkit-backdrop-filter", "blur(0px)");
-    overlay.style.willChange = "opacity, backdrop-filter, -webkit-backdrop-filter, background-color";
-  } else {
-    overlay.style.willChange = "opacity, background-color";
-  }
+  overlay.style.willChange = "opacity";
   document.body.appendChild(overlay);
   return overlay;
 }
 
-function setOverlayBlur(overlay: HTMLDivElement, blurPx: number) {
-  overlay.style.backdropFilter = `blur(${blurPx}px)`;
-  overlay.style.setProperty("-webkit-backdrop-filter", `blur(${blurPx}px)`);
+function addLoadingKeyhole(overlay: HTMLDivElement): HTMLDivElement {
+  const holder = document.createElement("div");
+  holder.style.position = "absolute";
+  holder.style.inset = "0";
+  holder.style.display = "flex";
+  holder.style.alignItems = "center";
+  holder.style.justifyContent = "center";
+
+  const icon = document.createElement("div");
+  icon.style.width = "48px";
+  icon.style.height = "48px";
+  icon.style.backgroundImage = "url('/Keyhole.svg')";
+  icon.style.backgroundRepeat = "no-repeat";
+  icon.style.backgroundPosition = "center";
+  icon.style.backgroundSize = "contain";
+  icon.style.opacity = "0.8";
+  icon.style.animation = "route-loader-pulse 1.4s ease-in-out infinite";
+
+  holder.appendChild(icon);
+  overlay.appendChild(holder);
+  return holder;
 }
 
 function waitForOverlayTransitionEnd(
@@ -118,23 +122,12 @@ function waitForOverlayTransitionEnd(
 }
 
 function animateToMidpoint(overlay: HTMLDivElement, mobile = false): Promise<void> {
-  const { phaseInMs, ease, maxBlurPx, holdOpacity, holdBackgroundAlpha } = ANIMATION_CONFIG.routeBlurTransition;
+  const { phaseInMs, ease, holdOpacity } = ANIMATION_CONFIG.routeBlurTransition;
   return new Promise((resolve) => {
-    if (mobile) {
-      // On mobile: simple opacity + background-color, no blur.
-      overlay.style.transition = `opacity ${phaseInMs}ms ${ease}, background-color ${phaseInMs}ms ${ease}`;
-      requestAnimationFrame(() => {
-        overlay.style.opacity = String(holdOpacity);
-        overlay.style.background = `rgba(255,255,255,${holdBackgroundAlpha})`;
-      });
-    } else {
-      overlay.style.transition = `opacity ${phaseInMs}ms ${ease}, backdrop-filter ${phaseInMs}ms ${ease}, -webkit-backdrop-filter ${phaseInMs}ms ${ease}, background-color ${phaseInMs}ms ${ease}`;
-      requestAnimationFrame(() => {
-        overlay.style.opacity = String(holdOpacity);
-        overlay.style.background = `rgba(255,255,255,${holdBackgroundAlpha})`;
-        setOverlayBlur(overlay, maxBlurPx * 0.5);
-      });
-    }
+    overlay.style.transition = `opacity ${phaseInMs}ms ${ease}`;
+    requestAnimationFrame(() => {
+      overlay.style.opacity = String(holdOpacity);
+    });
     void waitForOverlayTransitionEnd(overlay, phaseInMs).then(resolve);
   });
 }
@@ -142,20 +135,10 @@ function animateToMidpoint(overlay: HTMLDivElement, mobile = false): Promise<voi
 function animateOut(overlay: HTMLDivElement, outMs: number, mobile = false): Promise<void> {
   const { ease } = ANIMATION_CONFIG.routeBlurTransition;
   return new Promise((resolve) => {
-    if (mobile) {
-      overlay.style.transition = `opacity ${outMs}ms ${ease}, background-color ${outMs}ms ${ease}`;
-      requestAnimationFrame(() => {
-        overlay.style.opacity = "0";
-        overlay.style.background = "rgba(255,255,255,0)";
-      });
-    } else {
-      overlay.style.transition = `opacity ${outMs}ms ${ease}, backdrop-filter ${outMs}ms ${ease}, -webkit-backdrop-filter ${outMs}ms ${ease}, background-color ${outMs}ms ${ease}`;
-      requestAnimationFrame(() => {
-        overlay.style.opacity = "0";
-        overlay.style.background = "rgba(255,255,255,0)";
-        setOverlayBlur(overlay, 0);
-      });
-    }
+    overlay.style.transition = `opacity ${outMs}ms ${ease}`;
+    requestAnimationFrame(() => {
+      overlay.style.opacity = "0";
+    });
     void waitForOverlayTransitionEnd(overlay, outMs).then(resolve);
   });
 }
@@ -183,7 +166,11 @@ async function navigateWithLoadingAwareBlur({
     ? Math.max(140, Math.round(cfg.phaseOutFastMs * 0.5))
     : cfg.phaseOutFastMs;
   const pushDelayMs = mobile ? Math.min(cfg.pushDelayMs, 70) : cfg.pushDelayMs;
-  const overlay = createHoldBlurOverlay(mobile);
+  const overlay = createHoldBlurOverlay();
+  let loaderEl: HTMLDivElement | null = null;
+  const loaderTimeout = window.setTimeout(() => {
+    loaderEl = addLoadingKeyhole(overlay);
+  }, 5000);
   let readyResolved = false;
 
   const readyPromise = waitForReady().then(() => {
@@ -207,6 +194,8 @@ async function navigateWithLoadingAwareBlur({
   }
 
   await animateOut(overlay, readyDuringPhaseIn ? phaseOutFastMs : phaseOutMs, mobile);
+  window.clearTimeout(loaderTimeout);
+  loaderEl?.remove();
   overlay.remove();
   transitionInProgress = false;
 }
@@ -249,6 +238,12 @@ export function navigateWithBlurTransition({
   toPath: string;
   isMobile: boolean;
 }): void {
+  const from = normalizePath(fromPath);
+  const to = normalizePath(toPath);
+  if (!HOME_ROUTES.has(from) && HOME_ROUTES.has(to)) {
+    sessionStorage.setItem(HOME_MENU_ONCE_KEY, "1");
+  }
+
   const shouldUseBlur = shouldUseBlurRouteTransition({ fromPath, toPath, isMobile });
   if (!shouldUseBlur) {
     router.push(toPath);

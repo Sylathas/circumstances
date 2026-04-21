@@ -16,6 +16,8 @@ import { useIsMobile } from "@/app/hooks/useIsMobile";
 import { navigateWithBlurTransition } from "@/app/utils/blurRouteTransition";
 
 const HOME_ROUTES = new Set(["/", "/home", "/circumstances", "/circumstances/"]);
+const HOME_ROUTE = "/";
+const HOME_MENU_ONCE_KEY = "circumstances-home-menu-once";
 
 function shouldUseSimpleFadeNavigation(): boolean {
   if (typeof window === "undefined") return false;
@@ -41,21 +43,22 @@ function useHomeTransition() {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   useEffect(() => {
-    router.prefetch("/home");
+    router.prefetch(HOME_ROUTE);
   }, [router]);
 
   return (e: React.MouseEvent) => {
     if (HOME_ROUTES.has(pathname ?? "")) return; // already home
     e.preventDefault();
+    sessionStorage.setItem(HOME_MENU_ONCE_KEY, "1");
     const triggerOverlayFallback = () => {
       const notCancelled = window.dispatchEvent(
         new CustomEvent("keychain:route-transition", {
           cancelable: true,
-          detail: { action: "Tag", route: "/home" },
+          detail: { action: "Tag", route: HOME_ROUTE },
         })
       );
       if (notCancelled) {
-        router.push("/home");
+        router.push(HOME_ROUTE);
       }
     };
     const doc = document as Document & {
@@ -65,7 +68,7 @@ function useHomeTransition() {
       navigateWithBlurTransition({
         router,
         fromPath: pathname ?? "/",
-        toPath: "/home",
+        toPath: HOME_ROUTE,
         isMobile,
       });
       return;
@@ -78,7 +81,7 @@ function useHomeTransition() {
       try {
         const t = doc.startViewTransition(() => {
           sessionStorage.setItem("route-shape-nav", "1");
-          router.push("/home");
+          router.push(HOME_ROUTE);
         });
         t.finished.finally(() => {
           document.documentElement.classList.remove("route-shape-vt-reverse");
@@ -114,7 +117,7 @@ export type SaveState = "idle" | "loading" | "success";
 export type HeaderProps = {
   activeFilters?: ActiveFilters;
   onFilterToggle?: (type: ProjectType) => void;
-  /** When set, show a BACK link (e.g. "/") on the right side. */
+  /** When set, show a BACK link (top right; same navigation as logo when href is home). */
   backHref?: string;
   /** When set and isAdmin, show SAVE button; called on click. */
   onSave?: () => void | Promise<void>;
@@ -146,12 +149,14 @@ export function Header({
       isMobile,
     });
   };
+  const backActsLikeLogo =
+    backHref != null && (backHref === HOME_ROUTE || HOME_ROUTES.has(backHref));
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between bg-transparent px-4 py-2 text-black mix-blend-difference text-white">
         <div className="flex gap-20 items-center min-w-0">
           <Link
-            href="/home"
+            href={HOME_ROUTE}
             onClick={handleHomeClick}
             className={`block h-7 w-7 shrink-0 bg-[url('/textures/logo.png')] bg-contain bg-center bg-no-repeat ${isMobile && "hidden"}`}
             aria-label="Home"
@@ -180,10 +185,10 @@ export function Header({
           <SongBar />
         </div>
         <div className="flex items-center gap-6 shrink-0">
-          {backHref != null && isMobile && (
+          {backHref != null && (
             <Link
-              href={backHref}
-              onClick={handleBackClick}
+              href={backActsLikeLogo ? HOME_ROUTE : backHref}
+              onClick={backActsLikeLogo ? handleHomeClick : handleBackClick}
               className="font-inherit text-xs font-normal no-underline"
               style={{ fontWeight: 500 }}
             >

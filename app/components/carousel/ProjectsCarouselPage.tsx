@@ -43,12 +43,13 @@ export default function ProjectsCarouselPage() {
       <Header
         activeFilters={c.activeFilters}
         onFilterToggle={c.toggleFilter}
-        backHref="/home"
+          backHref="/"
         showCategoryFilters
       />
       <div className={`w-full relative cursor-default ${isMobile ? "h-[calc(90vh_-_var(--header-height))]" : "h-[calc(100vh_-_var(--header-height))]"}`}>
         <CarouselScene
-          projects={c.filteredProjects}
+          allProjects={c.projects}
+          activeFilters={c.activeFilters}
           isAdmin={!!c.isAdmin}
           activeIndex={c.clampedIndex}
           onActiveIndexChange={c.setActiveIndex}

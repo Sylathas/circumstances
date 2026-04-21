@@ -40,7 +40,6 @@ function cubicEaseInOut(t: number): number {
 type UseKeychainBlendArgs = {
   managedClips: Partial<Record<ManagedClipName, THREE.AnimationClip | null>>;
   mixer: THREE.AnimationMixer;
-  rootRef: React.RefObject<THREE.Group | null>;
   scene: THREE.Group;
   onIdleBlendComplete?: () => void;
 };
@@ -68,7 +67,6 @@ type UseKeychainBlendReturn = {
 export function useKeychainBlend({
   managedClips,
   mixer,
-  rootRef,
   scene,
   onIdleBlendComplete,
 }: UseKeychainBlendArgs): UseKeychainBlendReturn {
@@ -122,13 +120,13 @@ export function useKeychainBlend({
       if (cached) return cached;
       const base = managedClips.HoveredBase;
       if (!base) return null;
-      const hoverClip = clipForNodes(base, [nodeName]);
+      const hoverClip = clipForNodes(base, [nodeName], { sparseFallback: false });
       if (hoverClip.tracks.length === 0) return null;
-      const action = mixer.clipAction(hoverClip, rootRef.current ?? scene);
+      const action = mixer.clipAction(hoverClip, scene);
       hoverActionsRef.current.set(nodeName, action);
       return action;
     },
-    [managedClips.HoveredBase, mixer, rootRef, scene]
+    [managedClips.HoveredBase, mixer, scene]
   );
 
   const stopAllHoverActions = useCallback(() => {

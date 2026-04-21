@@ -6,12 +6,13 @@
  * Used on the home page to browse and select projects.
  */
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, Suspense, useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import * as THREE from "three";
 import type { Project } from "@/app/types/project";
+import type { ActiveFilters } from "@/app/components/Header";
 import { CarouselGroup } from "./CarouselGroup";
 import { ANIMATION_CONFIG } from "@/app/config/animation";
 
@@ -35,7 +36,8 @@ const DRAG_SENSITIVITY = ANIMATION_CONFIG.carousel.dragSensitivity;
 export type ScrollEasing = "linear" | "easeOut";
 
 type CarouselSceneProps = {
-  projects: Project[];
+  allProjects: Project[];
+  activeFilters: ActiveFilters;
   isAdmin: boolean;
   activeIndex: number;
   onActiveIndexChange: (index: number) => void;
@@ -48,7 +50,8 @@ type CarouselSceneProps = {
 };
 
 export default function CarouselScene({
-  projects,
+  allProjects,
+  activeFilters,
   isAdmin,
   activeIndex,
   onActiveIndexChange,
@@ -69,9 +72,16 @@ export default function CarouselScene({
     startTarget: 0,
   });
 
-  const N = projects.length + (isAdmin ? 1 : 0);
+  const visibleOrdered = useMemo(
+    () =>
+      activeFilters.size === 0
+        ? allProjects
+        : allProjects.filter((p) => activeFilters.has(p.Type)),
+    [allProjects, activeFilters]
+  );
+
+  const N = visibleOrdered.length + (isAdmin ? 1 : 0);
   const numSlots = Math.max(1, N);
-  const angleStep = (2 * Math.PI) / numSlots;
   const isMobile = useIsMobile();
   const radius = isMobile
     ? ANIMATION_CONFIG.carousel.arcRadiusMobile
@@ -165,15 +175,19 @@ export default function CarouselScene({
         onCreated={({ gl }) => gl.setClearColor(0xffffff, 1)}
         style={{ display: "block", width: "100%", height: "100%" }}
       >
-        <ambientLight intensity={0.6} />
-        <Environment files={"/textures/monochrome_studio_04_1k.exr"} environmentRotation={[-Math.PI / 8, Math.PI / 1.15, 0]} />
+        <ambientLight intensity={0.55} />
+        <directionalLight position={[4, 6, 5]} intensity={0.35} />
+        <Suspense fallback={null}>
+          <Environment files={"/textures/monochrome_studio_04_1k.exr"} environmentRotation={[-Math.PI / 8, Math.PI / 1.15, 0]} />
+        </Suspense>
         <CarouselGroup
-          projects={projects}
+          allProjects={allProjects}
+          visibleOrdered={visibleOrdered}
+          activeFilters={activeFilters}
           isAdmin={isAdmin}
           onAddClick={onAddClick}
           onProjectClick={onProjectClick}
           radius={radius}
-          angleStep={angleStep}
           numSlots={numSlots}
           scrollRef={scrollRef}
           targetRef={targetRef}

@@ -28,8 +28,8 @@ export function LoadingScreen() {
             <img
               src="/Keyhole.svg"
               alt=""
-              width={48}
-              height={48}
+              width={20}
+              height={20}
             />
           </motion.div>
         </motion.div>
