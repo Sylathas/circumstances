@@ -19,11 +19,11 @@ function toDiaryList(snap: Awaited<ReturnType<typeof getDocs>>): DiaryEntryWithO
         : 1_000_000_000 + idx;
     return {
       id: d.id,
-      slug: typeof data?.slug === "string" ? data.slug : undefined,
-      cover: data?.cover ?? "",
-      description: data?.description ?? "",
-      name: data?.name ?? "",
-      subtitle: data?.subtitle ?? "",
+      slug: typeof data.slug === "string" ? data.slug : undefined,
+      cover: typeof data.cover === "string" ? data.cover : "",
+      description: typeof data.description === "string" ? data.description : "",
+      name: typeof data.name === "string" ? data.name : "",
+      subtitle: typeof data.subtitle === "string" ? data.subtitle : "",
       order,
     };
   });
