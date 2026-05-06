@@ -79,11 +79,6 @@ export function PostFxEditor({ onValuesChange }: PostFxEditorProps) {
   }, [desktopFx, tabletFx, mobileFx, batterySaverFx, setFxMatrix]);
 
   // --- Section C: Color grading parameters ---
-  const toneMapping = useControls("Tone Mapping", {
-    middleGrey: { value: fx.toneMiddleGrey, min: 0.1, max: 2, step: 0.05 },
-    maxLuminance: { value: fx.toneMaxLuminance, min: 1, max: 32, step: 0.5 },
-    averageLuminance: { value: fx.toneAverageLuminance, min: 0.1, max: 4, step: 0.1 },
-  });
   const bloom = useControls("Bloom", {
     intensity: { value: fx.bloomIntensity, min: 0, max: 3, step: 0.05 },
     luminanceThreshold: { value: fx.bloomLuminanceThreshold, min: 0, max: 1, step: 0.01 },
@@ -110,10 +105,8 @@ export function PostFxEditor({ onValuesChange }: PostFxEditorProps) {
     onValuesChange({
       fx: {
         enabled: true,
-        toneMiddleGrey: toneMapping.middleGrey,
-        toneMaxLuminance: toneMapping.maxLuminance,
-        toneAverageLuminance: toneMapping.averageLuminance,
         bloomIntensity: bloom.intensity,
+        mobileBloomIntensity: bloom.intensity,
         bloomLuminanceThreshold: bloom.luminanceThreshold,
         bloomLuminanceSmoothing: bloom.luminanceSmoothing,
         bloomRadius: bloom.radius,
@@ -123,10 +116,11 @@ export function PostFxEditor({ onValuesChange }: PostFxEditorProps) {
         vignetteOffset: vignette.offset,
         vignetteDarkness: vignette.darkness,
         noiseOpacity: noise.opacity,
+        mobileNoiseOpacity: noise.opacity,
       },
       emissiveIntensity: videoBacklight.emissiveIntensity,
     });
-  }, [toneMapping, bloom, colorGrading, vignette, noise, videoBacklight, onValuesChange]);
+  }, [bloom, colorGrading, vignette, noise, videoBacklight, onValuesChange]);
 
   return null;
 }
