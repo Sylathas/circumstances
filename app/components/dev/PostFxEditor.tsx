@@ -106,7 +106,7 @@ export function PostFxEditor({ onValuesChange }: PostFxEditorProps) {
       fx: {
         enabled: true,
         bloomIntensity: bloom.intensity,
-        mobileBloomIntensity: bloom.intensity,
+        mobileBloomIntensity: fx.mobileBloomIntensity,
         bloomLuminanceThreshold: bloom.luminanceThreshold,
         bloomLuminanceSmoothing: bloom.luminanceSmoothing,
         bloomRadius: bloom.radius,
@@ -116,7 +116,7 @@ export function PostFxEditor({ onValuesChange }: PostFxEditorProps) {
         vignetteOffset: vignette.offset,
         vignetteDarkness: vignette.darkness,
         noiseOpacity: noise.opacity,
-        mobileNoiseOpacity: noise.opacity,
+        mobileNoiseOpacity: fx.mobileNoiseOpacity,
       },
       emissiveIntensity: videoBacklight.emissiveIntensity,
     });

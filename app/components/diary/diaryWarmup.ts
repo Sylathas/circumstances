@@ -11,7 +11,7 @@ let diaryInFlight: Promise<DiaryEntryWithOrder[]> | null = null;
 
 function toDiaryList(snap: Awaited<ReturnType<typeof getDocs>>): DiaryEntryWithOrder[] {
   const list: DiaryEntryWithOrder[] = snap.docs.map((d, idx) => {
-    const data = d.data();
+    const data = d.data() as Record<string, unknown>;
     const rawOrder = data?.order;
     const order =
       typeof rawOrder === "number" && Number.isFinite(rawOrder)
