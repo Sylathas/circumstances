@@ -11,7 +11,7 @@ const assetPrefix = basePath
 const nextConfig: NextConfig = {
   reactStrictMode: false,
   // Only use static export when building for deploy (basePath set). In dev this is off
-  // so /project/[id] works without requiring generateStaticParams to succeed on every navigation.
+  // so /project/[slug] works without requiring generateStaticParams to succeed on every navigation.
   ...(isExportBuild ? { output: "export" as const } : {}),
   basePath: basePath || undefined,
   assetPrefix,

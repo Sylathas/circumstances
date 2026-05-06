@@ -15,9 +15,12 @@ import {
   query,
   orderBy,
   limit,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "./firebase/firebaseConfig";
 import { uploadFile } from "@/app/utils/storage";
+import { ensureUniqueSlug } from "@/app/utils/ensureUniqueSlug";
+import { invalidateDiaryCache } from "@/app/components/diary/diaryWarmup";
 
 type AddDiaryEntryModalProps = {
   onClose: () => void;
@@ -29,6 +32,7 @@ export default function AddDiaryEntryModal({
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -64,7 +68,7 @@ export default function AddDiaryEntryModal({
   };
 
   const handleCreate = async () => {
-    if (!description.trim()) return;
+    if (!name.trim() || !description.trim()) return;
     let url = coverUrl;
     if (coverFile && !url) {
       url = await uploadCover();
@@ -99,11 +103,15 @@ export default function AddDiaryEntryModal({
     try {
       const docRef = await addDoc(collection(db, "diary"), {
         cover: url,
+        name: name.trim(),
         description: description.trim(),
         order: nextOrder,
       });
+      const slug = await ensureUniqueSlug(db, "diary", name.trim(), docRef.id);
+      await updateDoc(docRef, { slug });
+      invalidateDiaryCache();
       onClose();
-      router.push(`/diary/${docRef.id}`);
+      router.push(`/diary/${slug}`);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to create diary entry"
@@ -115,6 +123,7 @@ export default function AddDiaryEntryModal({
 
   const canSubmit =
     !!coverFile &&
+    !!name.trim() &&
     !!description.trim() &&
     (coverUrl || (coverFile && !uploading)) &&
     !submitting;
@@ -130,6 +139,18 @@ export default function AddDiaryEntryModal({
       >
         <h2 className="mb-6 text-lg font-semibold">New diary entry</h2>
         <div className="flex flex-col gap-4">
+          <div>
+            <label className="mb-1 block text-xs font-normal">
+              Entry name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full border border-[#171717] p-3 text-sm font-inherit font-normal"
+              placeholder="Shown in the URL and page title"
+            />
+          </div>
           <div>
             <label className="mb-1 block text-xs font-normal">
               Cover Image

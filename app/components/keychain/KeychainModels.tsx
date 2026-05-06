@@ -57,11 +57,17 @@ function restartIdleChainLoop(action: THREE.AnimationAction | null | undefined) 
 type KeychainModelsProps = {
   visible?: boolean;
   interactive?: boolean;
+  /** 0 = rest camera, 1 = mobile zoom toward keychain; updated on interactable tap / outside tap. */
+  mobileKeychainZoomTargetRef?: RefObject<number>;
+  /** Match Scene camera zoom (typically `useIsMobile()`). */
+  isMobileViewport?: boolean;
 };
 
 export default function KeychainModels({
   visible = true,
   interactive = true,
+  mobileKeychainZoomTargetRef,
+  isMobileViewport = false,
 }: KeychainModelsProps) {
   const rootRef = useRef<THREE.Group>(null);
   const suppressOutsideClearRef = useRef(false);
@@ -183,8 +189,8 @@ export default function KeychainModels({
         child.receiveShadow = true;
       }
       if (child instanceof THREE.Light) {
-        if (child.name === "Accent") child.intensity = 40 * 15;
-        if (child.name === "Front") child.intensity = 80 * 15;
+        if (child.name === "Accent") child.intensity = 30 * 15;
+        if (child.name === "Front") child.intensity = 100 * 15;
       }
     });
     markGlbReady();
@@ -430,10 +436,13 @@ export default function KeychainModels({
         return;
       }
       toIdle();
+      if (mobileKeychainZoomTargetRef && isMobileViewport) {
+        mobileKeychainZoomTargetRef.current = 0;
+      }
     };
     window.addEventListener("pointerdown", onWindowPointerDown);
     return () => window.removeEventListener("pointerdown", onWindowPointerDown);
-  }, [toIdle]);
+  }, [toIdle, mobileKeychainZoomTargetRef, isMobileViewport]);
 
   const onPointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
     if (!interactive) return;
@@ -447,6 +456,9 @@ export default function KeychainModels({
       !clickBlendLockRef.current
     ) {
       returnToIdleFromAction(clip);
+      if (mobileKeychainZoomTargetRef && isMobileViewport) {
+        mobileKeychainZoomTargetRef.current = 0;
+      }
       if (clip === "Tag") {
         window.location.href = MAILTO_URL;
       } else {
@@ -456,7 +468,16 @@ export default function KeychainModels({
     }
     armedSecondClickRef.current = clip;
     playClipAndHold(clip);
-  }, [interactive, playClipAndHold, returnToIdleFromAction]);
+    if (mobileKeychainZoomTargetRef && isMobileViewport) {
+      mobileKeychainZoomTargetRef.current = 1;
+    }
+  }, [
+    interactive,
+    playClipAndHold,
+    returnToIdleFromAction,
+    mobileKeychainZoomTargetRef,
+    isMobileViewport,
+  ]);
 
   const onPointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
     if (!interactive) return;

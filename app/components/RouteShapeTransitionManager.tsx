@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { warmupProjectsCarousel } from "@/app/components/carousel/projectsWarmup";
+import { warmupDiaryGrid } from "@/app/components/diary/diaryWarmup";
 import { navigateWithBlurTransition } from "@/app/utils/blurRouteTransition";
 
 type RouteTransitionDetail = {
@@ -61,11 +62,19 @@ export default function RouteShapeTransitionManager() {
     router.prefetch("/studio");
     router.prefetch("/diary");
 
-    if (shouldUseSimpleFadeNavigation()) return;
+    const runDiaryWarmup = () => {
+      void warmupDiaryGrid({ preloadCovers: true, maxCovers: 24 });
+    };
+
+    if (shouldUseSimpleFadeNavigation()) {
+      const t = window.setTimeout(runDiaryWarmup, 500);
+      return () => window.clearTimeout(t);
+    }
 
     const runWarmup = () => {
       void Promise.allSettled([
         warmupProjectsCarousel({ preloadImages: true, maxImages: 10 }),
+        warmupDiaryGrid({ preloadCovers: true, maxCovers: 24 }),
         import("@/app/components/carousel/CarouselScene"),
       ]);
     };

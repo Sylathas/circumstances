@@ -2,17 +2,16 @@
 
 /**
  * ProjectPageClient is the client-side project detail page that reads and writes Firestore.
- * It loads a single project by id, exposes inline admin editing, media uploads, and credits, and renders sub-sections.
- * Used as the default export for /project/[id] via the route's server wrapper.
+ * It loads a single project by URL slug (or legacy id), exposes inline admin editing, media uploads, and credits, and renders sub-sections.
+ * Used as the default export for /project/[slug] via the route's server wrapper.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   doc,
-  getDoc,
   getDocs,
   collection,
   updateDoc,
@@ -33,11 +32,15 @@ import ProjectInfoSection from "./components/ProjectInfoSection";
 import MediaGallery from "./components/MediaGallery";
 import CreditsSection from "./components/CreditsSection";
 import ProjectPageFooter from "./components/ProjectPageFooter";
+import { fetchProjectDocByRouteSegment } from "@/app/utils/firestoreSlugLookup";
+import { projectPathSegment } from "@/app/utils/slug";
+import { ensureUniqueSlug } from "@/app/utils/ensureUniqueSlug";
 
 export default function ProjectPageClient() {
   const params = useParams();
   const pathname = usePathname();
-  const id = typeof params.id === "string" ? params.id : "";
+  const router = useRouter();
+  const routeSlug = typeof params.slug === "string" ? params.slug : "";
   const { isAdmin } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -51,28 +54,28 @@ export default function ProjectPageClient() {
   >([]);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [allProjectIds, setAllProjectIds] = useState<string[]>([]);
+  const [orderedProjects, setOrderedProjects] = useState<Project[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMobile = useIsMobile();
   const FETCH_TIMEOUT_MS = 12000;
 
   const fetchProject = useCallback(async () => {
-    if (!id) return;
+    if (!routeSlug) return;
     setLoading(true);
     setNotFound(false);
     setFetchError(null);
     try {
       const snap = await Promise.race([
-        getDoc(doc(db, "projects", id)),
-        new Promise<never>((_, reject) =>
+        fetchProjectDocByRouteSegment(db, routeSlug),
+        new Promise<null>((_, reject) =>
           setTimeout(
             () => reject(new Error("Request timed out")),
             FETCH_TIMEOUT_MS
           )
         ),
       ]);
-      if (!snap.exists()) {
+      if (!snap || !snap.exists()) {
         setNotFound(true);
         setProject(null);
         return;
@@ -93,27 +96,39 @@ export default function ProjectPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [routeSlug]);
 
   useEffect(() => {
     fetchProject();
   }, [fetchProject]);
 
   useEffect(() => {
-    const raf = requestAnimationFrame(() => emitRouteReady(pathname ?? `/projects/${id}`));
+    const path = project
+      ? `/projects/${projectPathSegment(project)}`
+      : `/projects/${routeSlug}`;
+    const raf = requestAnimationFrame(() => emitRouteReady(pathname ?? path));
     return () => cancelAnimationFrame(raf);
-  }, [pathname, id]);
+  }, [pathname, routeSlug, project]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!project) return;
     getDocs(collection(db, "projects")).then((snap) => {
-      setAllProjectIds(snap.docs.map((d) => d.id).sort());
+      const list = snap.docs.map(
+        (d) => ({ id: d.id, ...d.data() }) as Project
+      );
+      list.sort((a, b) => a.id.localeCompare(b.id));
+      setOrderedProjects(list);
     });
-  }, [id]);
+  }, [project]);
 
-  const nextId =
-    allProjectIds.length > 0
-      ? allProjectIds[(allProjectIds.indexOf(id) + 1) % allProjectIds.length]
+  const nextSegment =
+    orderedProjects.length > 0 && project
+      ? (() => {
+          const idx = orderedProjects.findIndex((p) => p.id === project.id);
+          if (idx < 0) return null;
+          const next = orderedProjects[(idx + 1) % orderedProjects.length];
+          return projectPathSegment(next);
+        })()
       : null;
 
   const handleSave = useCallback(async () => {
@@ -124,11 +139,18 @@ export default function ProjectPageClient() {
       successTimeoutRef.current = null;
     }
     try {
+      const nextSlug = await ensureUniqueSlug(
+        db,
+        "projects",
+        projectTitle.trim(),
+        project.id
+      );
       await updateDoc(doc(db, "projects", project.id), {
         Client: client,
         "Project Title": projectTitle,
         "Project Description": projectDescription,
         "Credit Names": creditNames,
+        slug: nextSlug,
         Images: mediaItems
           .filter((m) => m.type === "image")
           .map((m) => m.url),
@@ -136,11 +158,32 @@ export default function ProjectPageClient() {
           .filter((m) => m.type === "video")
           .map((m) => m.url),
       });
+      setProject((prev) =>
+        prev
+          ? {
+              ...prev,
+              slug: nextSlug,
+              Client: client,
+              "Project Title": projectTitle,
+              "Project Description": projectDescription,
+              "Credit Names": creditNames,
+              Images: mediaItems
+                .filter((m) => m.type === "image")
+                .map((m) => m.url),
+              Videos: mediaItems
+                .filter((m) => m.type === "video")
+                .map((m) => m.url),
+            }
+          : null
+      );
       setSaveState("success");
       successTimeoutRef.current = setTimeout(() => {
         setSaveState("idle");
         successTimeoutRef.current = null;
       }, 2000);
+      if (nextSlug !== routeSlug) {
+        router.replace(`/projects/${nextSlug}`);
+      }
     } catch (err) {
       console.error(err);
       setSaveState("idle");
@@ -152,6 +195,8 @@ export default function ProjectPageClient() {
     projectDescription,
     creditNames,
     mediaItems,
+    routeSlug,
+    router,
   ]);
 
   const handleMediaReorder = useCallback((reordered: MediaItem[]) => {
@@ -161,7 +206,7 @@ export default function ProjectPageClient() {
   const handleAddMedia = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
-      if (!files?.length || !id) return;
+      if (!files?.length || !project) return;
       const toUpload = Array.from(files).filter(
         (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
       );
@@ -170,9 +215,10 @@ export default function ProjectPageClient() {
         return;
       }
       const ts = Date.now();
+      const pid = project.id;
       Promise.all(
         toUpload.map((file, i) => {
-          const path = `projects/${id}/media/${ts}_${i}_${file.name}`;
+          const path = `projects/${pid}/media/${ts}_${i}_${file.name}`;
           return uploadFile(file, path).then((url): MediaItem => {
             const isImage = file.type.startsWith("image/");
             return isImage ? { type: "image", url } : { type: "video", url };
@@ -183,7 +229,7 @@ export default function ProjectPageClient() {
       });
       e.target.value = "";
     },
-    [id]
+    [project]
   );
 
   const addCredit = useCallback(() => {
@@ -251,7 +297,7 @@ export default function ProjectPageClient() {
           <MediaGallery
             mediaItems={mediaItems}
             isAdmin={!!isAdmin}
-            projectId={id}
+            projectId={project.id}
             onReorder={handleMediaReorder}
             onAddMedia={handleAddMedia}
             isMobile={isMobile}
@@ -264,7 +310,7 @@ export default function ProjectPageClient() {
             onUpdate={updateCredit}
             isMobile={isMobile}
           />
-          <ProjectPageFooter nextProjectId={nextId} />
+          <ProjectPageFooter nextProjectSegment={nextSegment} />
         </main>
       </div>
     </PageTransition>

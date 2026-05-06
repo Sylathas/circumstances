@@ -32,21 +32,21 @@ export default function ProjectsCarouselPage() {
 
   if (c.authLoading || c.loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-[100dvh] flex items-center justify-center">
         Loading...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white pt-[var(--header-height)]">
+    <div className="min-h-[100dvh] bg-white pt-[var(--header-height)]">
       <Header
         activeFilters={c.activeFilters}
         onFilterToggle={c.toggleFilter}
-          backHref="/"
+        backHref="/"
         showCategoryFilters
       />
-      <div className={`w-full relative cursor-default ${isMobile ? "h-[calc(90vh_-_var(--header-height))]" : "h-[calc(100vh_-_var(--header-height))]"}`}>
+      <div className={`w-full relative cursor-default ${isMobile ? "h-[calc(90svh_-_var(--header-height))]" : "h-[calc(100vh_-_var(--header-height))]"}`}>
         <CarouselScene
           allProjects={c.projects}
           activeFilters={c.activeFilters}

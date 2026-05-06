@@ -3,12 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-} from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import type { DragEndEvent } from "@dnd-kit/core";
 import {
   DndContext,
@@ -33,6 +28,12 @@ import type { DiaryEntry } from "@/app/types/project";
 import AddDiaryEntryModal from "@/app/components/AddDiaryEntryModal";
 import SortableDiaryEntryTile from "@/app/components/diary/SortableDiaryEntryTile";
 import { navigateWithBlurTransition } from "@/app/utils/blurRouteTransition";
+import { diaryPathSegment } from "@/app/utils/slug";
+import {
+  getWarmDiarySnapshot,
+  warmupDiaryGrid,
+  type DiaryEntryWithOrder,
+} from "@/app/components/diary/diaryWarmup";
 
 export default function DiaryPage() {
   const router = useRouter();
@@ -40,10 +41,11 @@ export default function DiaryPage() {
   const { isAdmin } = useAuth();
   const isMobile = useIsMobile();
   const [columnNum, setColumnNum] = useState("grid-cols-6");
-  const [entries, setEntries] = useState<Array<DiaryEntry & { order: number }>>(
-    []
+  const warmSnapshot = getWarmDiarySnapshot();
+  const [entries, setEntries] = useState<DiaryEntryWithOrder[]>(
+    () => warmSnapshot ?? []
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!warmSnapshot);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isDraggingGlobal, setIsDraggingGlobal] = useState(false);
@@ -66,40 +68,31 @@ export default function DiaryPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchEntries = async () => {
-      setLoading(true);
+      if (!getWarmDiarySnapshot()) {
+        setLoading(true);
+      }
       setError(null);
       try {
-        const snap = await getDocs(collection(db, "diary"));
-        const list: Array<DiaryEntry & { order: number }> = snap.docs.map(
-          (d, idx) => {
-            const data = d.data();
-            const rawOrder = data?.order;
-            const order =
-              typeof rawOrder === "number" && Number.isFinite(rawOrder)
-                ? rawOrder
-                : 1_000_000_000 + idx;
-            return {
-              id: d.id,
-              cover: data?.cover ?? "",
-              description: data?.description ?? "",
-              name: data?.name ?? "",
-              subtitle: data?.subtitle ?? "",
-              order,
-            };
-          }
-        );
-        list.sort((a, b) => a.order - b.order);
+        const list = await warmupDiaryGrid({
+          preloadCovers: true,
+          maxCovers: 24,
+        });
+        if (cancelled) return;
         setEntries(list);
       } catch (err) {
         console.error(err);
-        setError("Failed to load diary entries.");
+        if (!cancelled) setError("Failed to load diary entries.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchEntries();
+    void fetchEntries();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const persistOrder = useCallback(
@@ -212,11 +205,11 @@ export default function DiaryPage() {
                       entry={entry}
                       isDraggingGlobal={isDraggingGlobal}
                       disabled={!sortingEnabled}
-                      onOpen={(id) =>
+                      onOpen={() =>
                         navigateWithBlurTransition({
                           router,
                           fromPath: pathname ?? "/diary",
-                          toPath: `/diary/${id}`,
+                          toPath: `/diary/${diaryPathSegment(entry)}`,
                           isMobile,
                         })
                       }

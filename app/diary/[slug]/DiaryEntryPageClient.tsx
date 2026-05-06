@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, usePathname } from "next/navigation";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { doc, updateDoc } from "firebase/firestore";
 
 import { db } from "@/app/components/firebase/firebaseConfig";
 import { useAuth } from "@/app/components/auth/AuthContext";
@@ -12,11 +12,15 @@ import type { DiaryEntry } from "@/app/types/project";
 import { emitRouteReady } from "@/app/utils/routeReady";
 import { uploadFile } from "@/app/utils/storage";
 import ProgressiveImage from "@/app/components/common/ProgressiveImage";
+import { fetchDiaryDocByRouteSegment } from "@/app/utils/firestoreSlugLookup";
+import { diaryPathSegment } from "@/app/utils/slug";
+import { ensureUniqueSlug } from "@/app/utils/ensureUniqueSlug";
 
 export default function DiaryEntryPageClient() {
   const params = useParams();
   const pathname = usePathname();
-  const id = typeof params.id === "string" ? params.id : "";
+  const router = useRouter();
+  const routeSlug = typeof params.slug === "string" ? params.slug : "";
   const { isAdmin } = useAuth();
 
   const [entry, setEntry] = useState<DiaryEntry | null>(null);
@@ -31,12 +35,12 @@ export default function DiaryEntryPageClient() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   const fetchEntry = useCallback(async () => {
-    if (!id) return;
+    if (!routeSlug) return;
     setLoading(true);
     setNotFound(false);
     try {
-      const snap = await getDoc(doc(db, "diary", id));
-      if (!snap.exists()) {
+      const snap = await fetchDiaryDocByRouteSegment(db, routeSlug);
+      if (!snap || !snap.exists()) {
         setNotFound(true);
         setEntry(null);
         return;
@@ -44,6 +48,7 @@ export default function DiaryEntryPageClient() {
       const data = snap.data();
       const loaded: DiaryEntry = {
         id: snap.id,
+        slug: typeof data.slug === "string" ? data.slug : undefined,
         cover: data.cover ?? "",
         description: data.description ?? "",
         name: data.name ?? "",
@@ -62,16 +67,17 @@ export default function DiaryEntryPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [routeSlug]);
 
   useEffect(() => {
     fetchEntry();
   }, [fetchEntry]);
 
   useEffect(() => {
-    const raf = requestAnimationFrame(() => emitRouteReady(pathname ?? `/diary/${id}`));
+    const path = entry ? `/diary/${diaryPathSegment(entry)}` : `/diary/${routeSlug}`;
+    const raf = requestAnimationFrame(() => emitRouteReady(pathname ?? path));
     return () => cancelAnimationFrame(raf);
-  }, [pathname, id]);
+  }, [pathname, routeSlug, entry]);
 
   const handleSave = useCallback(async () => {
     if (!entry) return;
@@ -82,22 +88,30 @@ export default function DiaryEntryPageClient() {
         const path = `diary/${entry.id}_${Date.now()}_${pendingCoverFile.name}`;
         nextCover = await uploadFile(pendingCoverFile, path);
       }
+      const nextSlug = await ensureUniqueSlug(db, "diary", name.trim(), entry.id);
       await updateDoc(doc(db, "diary", entry.id), {
         cover: nextCover,
         description,
         name,
         subtitle,
+        slug: nextSlug,
       });
       setCover(nextCover);
       setPendingCoverFile(null);
       setPendingCoverPreview(null);
+      setEntry((prev) =>
+        prev ? { ...prev, slug: nextSlug, name, subtitle, description, cover: nextCover } : null
+      );
       setSaveState("success");
       setTimeout(() => setSaveState("idle"), 1500);
+      if (nextSlug !== routeSlug) {
+        router.replace(`/diary/${nextSlug}`);
+      }
     } catch (err) {
       console.error(err);
       setSaveState("idle");
     }
-  }, [entry, cover, description, pendingCoverFile]);
+  }, [entry, cover, description, name, subtitle, pendingCoverFile, routeSlug, router]);
 
   const handleCoverChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

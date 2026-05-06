@@ -11,11 +11,11 @@ import { useIsMobile } from "@/app/hooks/useIsMobile";
 import { navigateWithBlurTransition } from "@/app/utils/blurRouteTransition";
 
 type ProjectPageFooterProps = {
-  nextProjectId: string | null;
+  nextProjectSegment: string | null;
 };
 
 export default function ProjectPageFooter({
-  nextProjectId,
+  nextProjectSegment,
 }: ProjectPageFooterProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -23,15 +23,15 @@ export default function ProjectPageFooter({
 
   return (
     <footer className="flex justify-end px-2">
-      {nextProjectId ? (
+      {nextProjectSegment ? (
         <Link
-          href={`/projects/${nextProjectId}`}
+          href={`/projects/${nextProjectSegment}`}
           onClick={(e) => {
             e.preventDefault();
             navigateWithBlurTransition({
               router,
-              fromPath: pathname ?? `/projects/${nextProjectId}`,
-              toPath: `/projects/${nextProjectId}`,
+              fromPath: pathname ?? `/projects/${nextProjectSegment}`,
+              toPath: `/projects/${nextProjectSegment}`,
               isMobile,
             });
           }}

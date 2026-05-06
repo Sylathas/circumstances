@@ -18,9 +18,9 @@ export const ANIMATION_CONFIG = {
      */
     filterTransition: {
       hideMs: 500,
-      arcDelayMs: 250,
-      arcMs: 1000,
-      showDelayMs: 250,
+      arcDelayMs: 0,
+      arcMs: 500,
+      showDelayMs: 0,
       showMs: 500,
     },
   },
@@ -31,6 +31,15 @@ export const ANIMATION_CONFIG = {
   introScene: {
     cameraFov: 30, // intro FOV; 25–45
     cameraZ: 22, // intro camera distance; 18–30
+    /**
+     * Mobile / narrow viewport: tap a keychain fob → ease camera slightly toward the keychain;
+     * tap elsewhere → ease back. Interrupting mid-motion re-blends from the current zoom (no jumps).
+     * Camera sits at +Z looking at origin; closenessZ subtracts from Z (moves forward).
+     */
+    mobileKeychainZoom: {
+      closenessZ: 10, // world units closer at full focus; 0.8–4
+      durationMs: 420, // smoothstep segment length when target toggles; 200–900
+    },
     keychainLights: {
       // Fallback lights used when the keychain GLB has no embedded punctual lights.
       frontIntensity: 0,
@@ -43,12 +52,9 @@ export const ANIMATION_CONFIG = {
     // Shared intro + home cinematic grading.
     // Toggle off quickly for debugging GPU/visual issues.
     enabled: true,
-    // Tone mapping
-    toneMiddleGrey: 0.6,
-    toneMaxLuminance: 16.0,
-    toneAverageLuminance: 1.0,
     // Bloom
     bloomIntensity: .8, // 0–1.5
+    mobileBloomIntensity: .5, // 0–1.5
     bloomLuminanceThreshold: 0.35, // 0–1
     bloomLuminanceSmoothing: 0.6, // 0–1
     bloomRadius: 0.55, // 0–1
@@ -58,6 +64,7 @@ export const ANIMATION_CONFIG = {
     contrast: 0, // -1..1
     // Film grain + vignette
     noiseOpacity: 0.1, // 0–0.1
+    mobileNoiseOpacity: 0.05, // 0–0.1
     vignetteOffset: 0.3, // 0.2–0.5
     vignetteDarkness: 0.8, // 0.3–1.0
   },

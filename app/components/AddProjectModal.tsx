@@ -9,10 +9,11 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, updateDoc } from "firebase/firestore";
 import { db } from "./firebase/firebaseConfig";
 import { uploadFile } from "@/app/utils/storage";
 import type { ProjectType } from "@/app/types/project";
+import { ensureUniqueSlug } from "@/app/utils/ensureUniqueSlug";
 
 const PROJECT_TYPES: ProjectType[] = [
   "Creative Direction",
@@ -90,8 +91,10 @@ export default function AddProjectModal({ onClose }: AddProjectModalProps) {
         Images: [],
         Videos: [],
       });
+      const slug = await ensureUniqueSlug(db, "projects", title.trim(), docRef.id);
+      await updateDoc(docRef, { slug });
       onClose();
-      router.push(`/projects/${docRef.id}`);
+      router.push(`/projects/${slug}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create project");
     } finally {

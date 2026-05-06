@@ -18,6 +18,8 @@ import {
 } from "@/app/components/carousel/projectsWarmup";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import { navigateWithBlurTransition } from "@/app/utils/blurRouteTransition";
+import { projectPathSegment } from "@/app/utils/slug";
+import { ensureUniqueSlug } from "@/app/utils/ensureUniqueSlug";
 
 export function useProjectsCarousel() {
   const router = useRouter();
@@ -127,12 +129,25 @@ export function useProjectsCarousel() {
       if (!trimmed) return;
       try {
         const key = field === "Project Title" ? "Project Title" : "Client";
-        await updateDoc(doc(db, "projects", projectId), { [key]: trimmed });
-        setProjects((prev) =>
-          prev.map((p) =>
-            p.id === projectId ? { ...p, [key]: trimmed } : p
-          )
-        );
+        if (field === "Project Title") {
+          const slug = await ensureUniqueSlug(db, "projects", trimmed, projectId);
+          await updateDoc(doc(db, "projects", projectId), {
+            [key]: trimmed,
+            slug,
+          });
+          setProjects((prev) =>
+            prev.map((p) =>
+              p.id === projectId ? { ...p, [key]: trimmed, slug } : p
+            )
+          );
+        } else {
+          await updateDoc(doc(db, "projects", projectId), { [key]: trimmed });
+          setProjects((prev) =>
+            prev.map((p) =>
+              p.id === projectId ? { ...p, [key]: trimmed } : p
+            )
+          );
+        }
       } catch (err) {
         console.error(err);
         alert("Failed to save");
@@ -147,7 +162,7 @@ export function useProjectsCarousel() {
         navigateWithBlurTransition({
           router,
           fromPath: pathname ?? "/projects",
-          toPath: `/projects/${filteredProjects[index].id}`,
+          toPath: `/projects/${projectPathSegment(filteredProjects[index])}`,
           isMobile,
         });
       }

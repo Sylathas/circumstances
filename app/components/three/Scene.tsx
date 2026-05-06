@@ -6,11 +6,10 @@
  * Used on the home page to gate the main menu behind the animated door.
  */
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import dynamic from 'next/dynamic'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import Door from './intro/Door'
-import type { RefObject } from 'react'
 import * as THREE from 'three'
 import KeychainModels from '@/app/components/keychain/KeychainModels'
 import { VideoBacklight } from '@/app/components/keychain/VideoBacklight'
@@ -25,6 +24,7 @@ import {
 } from '@react-three/postprocessing'
 import { ANIMATION_CONFIG } from '@/app/config/animation'
 import { useDeviceTier } from '@/app/context/DeviceTierContext'
+import { DeviceTier } from '@/app/config/deviceTier'
 
 // Dev-only: leva post-processing editor. Tree-shaken from production builds.
 const PostFxEditor = process.env.NODE_ENV === 'development'
@@ -54,10 +54,10 @@ type CameraEffectsProps = {
 };
 
 /** Wrapper so EffectComposer never receives `false` as a child (its types require ReactElement). */
-function BloomEffect({ fx, intensityScale }: { fx: FxValues; intensityScale: number }) {
+function BloomEffect({ fx, intensityScale, tier }: { fx: FxValues; intensityScale: number; tier: DeviceTier }) {
     return (
         <Bloom
-            intensity={fx.bloomIntensity * intensityScale}
+            intensity={tier === "mobile" ? fx.mobileBloomIntensity * intensityScale : fx.bloomIntensity * intensityScale}
             luminanceThreshold={fx.bloomLuminanceThreshold}
             luminanceSmoothing={fx.bloomLuminanceSmoothing}
             radius={fx.bloomRadius}
@@ -87,9 +87,9 @@ function CameraEffects({ fxValues, bloomIntensityScale = 1 }: CameraEffectsProps
 
     return (
         <EffectComposer multisampling={ms}>
-            <BloomEffect fx={fx} intensityScale={bloomIntensityScale} />
+            <BloomEffect fx={fx} intensityScale={bloomIntensityScale} tier={tier} />
             <Vignette offset={fx.vignetteOffset} darkness={fx.vignetteDarkness} />
-            <Noise opacity={fx.noiseOpacity} />
+            <Noise opacity={tier === "mobile" ? fx.mobileNoiseOpacity : fx.noiseOpacity} />
             <HueSaturation hue={0} saturation={fx.saturation} />
         </EffectComposer>
     )
@@ -103,18 +103,76 @@ const KEYCHAIN_WORLD_POS = new THREE.Vector3(0, 0, -30)
 const KEYCHAIN_WORLD_SCALE = 4
 const KEYCHAIN_MOBILE_WORLD_SCALE = 3.5
 
-function UnifiedCameraRig({ revealKeychain }: { revealKeychain: boolean }) {
+type MobileKeychainZoomTargetRef = RefObject<number>
+
+type ZoomSegmentState = {
+    display: number
+    segmentFrom: number
+    segmentTo: number
+    segmentStartMs: number
+    committedTarget: number
+}
+
+function smoothstep01(t: number): number {
+    const x = THREE.MathUtils.clamp(t, 0, 1)
+    return x * x * (3 - 2 * x)
+}
+
+function UnifiedCameraRig({
+    revealKeychain,
+    mobileKeychainZoomTargetRef,
+    isMobileViewport,
+}: {
+    revealKeychain: boolean
+    mobileKeychainZoomTargetRef: MobileKeychainZoomTargetRef
+    isMobileViewport: boolean
+}) {
     const { camera } = useThree()
     const lookAtTarget = useMemo(() => new THREE.Vector3(), [])
+    const zoomSegRef = useRef<ZoomSegmentState>({
+        display: 0,
+        segmentFrom: 0,
+        segmentTo: 0,
+        segmentStartMs: 0,
+        committedTarget: 0,
+    })
 
     useFrame(() => {
-        const targetPos = revealKeychain ? KEYCHAIN_CAMERA_POS : INTRO_CAMERA_POS
+        const zoomCfg = ANIMATION_CONFIG.introScene.mobileKeychainZoom
+        const zst = zoomSegRef.current
+        const useMobileZoom =
+            revealKeychain && isMobileViewport
+
+        if (!useMobileZoom) {
+            zst.display = 0
+            zst.segmentFrom = 0
+            zst.segmentTo = 0
+            zst.segmentStartMs = 0
+            zst.committedTarget = 0
+            mobileKeychainZoomTargetRef.current = 0
+        } else {
+            const want = mobileKeychainZoomTargetRef.current
+            if (want !== zst.committedTarget) {
+                zst.segmentFrom = zst.display
+                zst.segmentTo = want
+                zst.segmentStartMs = performance.now()
+                zst.committedTarget = want
+            }
+            const elapsed = performance.now() - zst.segmentStartMs
+            const u = zoomCfg.durationMs > 0 ? Math.min(1, elapsed / zoomCfg.durationMs) : 1
+            zst.display = zst.segmentFrom + (zst.segmentTo - zst.segmentFrom) * smoothstep01(u)
+        }
+
+        const baseTarget = revealKeychain ? KEYCHAIN_CAMERA_POS : INTRO_CAMERA_POS
+        const targetPos = baseTarget.clone()
+        if (useMobileZoom) {
+            targetPos.z -= zoomCfg.closenessZ * zst.display
+        }
+
         const targetLook = revealKeychain ? KEYCHAIN_LOOK_AT : INTRO_LOOK_AT
         const posAlpha = revealKeychain ? 0.06 : 0.2
         const lookAlpha = revealKeychain ? 0.08 : 0.2
 
-        // Only lerp while there is still meaningful distance to cover.
-        // Avoids writing to camera matrices every frame once it has settled.
         const posDeltaSq = camera.position.distanceToSquared(targetPos)
         const lookDeltaSq = lookAtTarget.distanceToSquared(targetLook)
         if (posDeltaSq < 1e-8 && lookDeltaSq < 1e-8) return
@@ -144,6 +202,7 @@ export default function IntroScene({ mode, onIntroComplete, onKeyholeInserted, o
     const introZ = ANIMATION_CONFIG.introScene.cameraZ
     const phaseNotifiedRef = useRef(false)
     const isMobile = useIsMobile()
+    const mobileKeychainZoomTargetRef = useRef(0)
 
     const keychainWorldScale = isMobile ? KEYCHAIN_MOBILE_WORLD_SCALE : KEYCHAIN_WORLD_SCALE
 
@@ -165,7 +224,11 @@ export default function IntroScene({ mode, onIntroComplete, onKeyholeInserted, o
             >
                 <Suspense fallback={null}>
                     <SuspenseReady onReady={onIntroReady} />
-                    <UnifiedCameraRig revealKeychain={revealKeychain} />
+                    <UnifiedCameraRig
+                        revealKeychain={revealKeychain}
+                        mobileKeychainZoomTargetRef={mobileKeychainZoomTargetRef}
+                        isMobileViewport={isMobile}
+                    />
                     {!startInKeychain && !doorOpened && (
                         <Door
                             onDoorBloomProgress={setDoorBloomEased}
@@ -192,6 +255,8 @@ export default function IntroScene({ mode, onIntroComplete, onKeyholeInserted, o
                         <KeychainModels
                             visible={revealKeychain}
                             interactive={startInKeychain || revealKeychain}
+                            mobileKeychainZoomTargetRef={mobileKeychainZoomTargetRef}
+                            isMobileViewport={isMobile}
                         />
                     </group>
                     <CameraEffects

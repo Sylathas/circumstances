@@ -8,7 +8,7 @@ import ProgressiveImage from "@/app/components/common/ProgressiveImage";
 
 type SortableDiaryEntryTileProps = {
   entry: DiaryEntry;
-  onOpen: (id: string) => void;
+  onOpen: () => void;
   isDraggingGlobal: boolean;
   disabled?: boolean;
 };
@@ -45,7 +45,7 @@ export default function SortableDiaryEntryTile({
         e.stopPropagation();
         // Prevent open right after a drag (click can fire on the tile underneath).
         if (isDraggingGlobal || isDragging) return;
-        onOpen(entry.id);
+        onOpen();
       }}
       {...attributes}
       {...listeners}

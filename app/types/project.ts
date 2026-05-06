@@ -9,6 +9,8 @@ export type RowLayout = 1 | 2;
 
 export interface Project {
   id: string;
+  /** URL segment for /projects/[slug]; derived from title when missing. */
+  slug?: string;
   Client: string;
   "Cover Image": string;
   "Credit Names": Array<{ name: string; role: string }>;
@@ -30,6 +32,8 @@ export interface StudioDocument {
 
 export interface DiaryEntry {
   id: string;
+  /** URL segment for /diary/[slug]; derived from name when missing. */
+  slug?: string;
   cover: string;
   description: string;
   name: string;
